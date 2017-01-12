@@ -2,17 +2,26 @@ machine:
   services:
     - docker
   environment:
-    IMPORT_PATH: "github.com/$PROJECT_USER/$PROJECT_NAME"
+    GOPATH: /home/ubuntu/.go_workspace
+    IMPORT_PATH: "github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
+
+general:
+  build_dir: ../.go_workspace/src/$IMPORT_PATH
+
+checkout:
+  post:
+    - mkdir -p "$GOPATH/src/$IMPORT_PATH"
+    - rsync -azC --delete $HOME/$CIRCLE_PROJECT_REPONAME/ $GOPATH/src/$IMPORT_PATH/
 
 dependencies:
   pre:
     - go get github.com/tools/godep
 
   override:
-    - mkdir -p "$GOPATH/src/$IMPORT_PATH"
-    - rsync -azC --delete ./ "$GOPATH/src/$IMPORT_PATH/"
+    - godep restore
+    - CGO_ENABLED=0 go build -a -installsuffix nocgo .
     - docker login -u $DOCKER_USERNAME -p $DOCKER_PWD -e "$DOCKER_EMAIL" quay.io
-    - docker build -t quay.io/$PROJECT_USER/$PROJECT_NAME:${CIRCLE_SHA1:0:7} .
+    - docker build -t quay.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:${CIRCLE_SHA1:0:7} .
 
 test:
   pre:
@@ -27,4 +36,4 @@ deployment:
   quayio:
     branch: master
     commands:
-      - docker push quay.io/$PROJECT_USER/$PROJECT_NAME:${CIRCLE_SHA1:0:7}
+      - docker push quay.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:${CIRCLE_SHA1:0:7}
