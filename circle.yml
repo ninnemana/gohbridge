@@ -35,8 +35,6 @@ test:
 
   override:
     - godep go test ./...
-    - "curl http://localhost:8080/status"
-    - "[[ $(curl http://localhost:8080/status) = 'up' ]]"
 
 deployment:
   quayio:
