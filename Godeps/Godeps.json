@@ -4,6 +4,11 @@
 	"GodepVersion": "v75",
 	"Deps": [
 		{
+			"ImportPath": "github.com/pkg/errors",
+			"Comment": "v0.8.0-2-g248dadf",
+			"Rev": "248dadf4e9068a0b3e79f02ed0a610d935de5302"
+		},
+		{
 			"ImportPath": "github.com/pressly/chi",
 			"Comment": "v2.0.0-2-g73deb7e",
 			"Rev": "73deb7ecc23095c0de39ba4de4f2a30e2ba829c6"
