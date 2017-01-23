@@ -114,7 +114,7 @@ func InitLightSearch(b Bridge, ids ...string) error {
 		return err
 	}
 
-	var resp LightSearchResponse
+	var resp []LightSearchResponse
 	err = json.Unmarshal(data, &resp)
 
 	return err
@@ -149,6 +149,6 @@ func RenameLight(b Bridge, id, name string) error {
 		return err
 	}
 
-	var l LightSearchResponse
+	var l []LightSearchResponse
 	return json.Unmarshal(data, &l)
 }

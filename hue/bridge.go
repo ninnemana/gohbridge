@@ -7,11 +7,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+
+	"github.com/pkg/errors"
 )
 
 var (
-	portalURL     = "https://www.meethue.com/api/nupnp"
-	requestMethod = "GET"
+	portalURL = "https://www.meethue.com/api/nupnp"
 )
 
 // BridgeNetwork describes the network properties of a given
@@ -20,10 +21,12 @@ type BridgeNetwork struct {
 	InternalIP string `json:"internalipaddress" xml:"internalipaddress"`
 }
 
-// BridgeRequest ...
+// BridgeRequest describes a request to be executed against a
+// provided Bridge.
 type BridgeRequest struct {
 	Bridge  Bridge
 	Request *http.Request
+	Error   error
 }
 
 // Bridge defines a unique Philips Hue Bridge.
@@ -32,7 +35,7 @@ type Bridge struct {
 	ID string `json:"id" xml:"id"`
 }
 
-// BridgeState ...
+// BridgeState represents the current logical state of the Hue Bridge.
 type BridgeState struct {
 	Lights        map[string]Light        `json:"lights"`
 	Groups        map[string]Group        `json:"groups"`
@@ -48,29 +51,18 @@ type BridgeState struct {
 // by using the meethue.com lookup service.
 func Discover() ([]Bridge, error) {
 
-	req, err := http.NewRequest(requestMethod, portalURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.Get(portalURL)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("%s", string(data))
+		return nil, fmt.Errorf("%s", "discovery failed")
 	}
 
 	var bridges []Bridge
-	err = json.Unmarshal(data, &bridges)
+	err = json.NewDecoder(resp.Body).Decode(&bridges)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +70,8 @@ func Discover() ([]Bridge, error) {
 	return bridges, nil
 }
 
-// GetState ...
+// GetState delivers the returned specific of how the Bridge is feeling, or an
+// error if it fails to query the REST API, or parsing the JSON.
 func (b Bridge) GetState() (*BridgeState, error) {
 	data, err := b.NewRequest("GET", os.Getenv("HUE_USER"), nil).Do()
 	if err != nil {
@@ -87,48 +80,36 @@ func (b Bridge) GetState() (*BridgeState, error) {
 
 	var bs *BridgeState
 	err = json.Unmarshal(data, &bs)
-	if err != nil {
-		return nil, err
-	}
-
-	return bs, nil
+	return bs, err
 }
 
-// NewRequest ...
+// NewRequest creates a new request that is bound to the assigned bridge.
 func (b Bridge) NewRequest(method, uri string, body io.Reader) *BridgeRequest {
 	br := BridgeRequest{
 		Bridge: b,
 	}
-	req, err := http.NewRequest("GET", b.toURI(uri), nil)
-	if err != nil {
-		return &br
-	}
 
-	br.Request = req
+	br.Request, _ = http.NewRequest(method, b.toURI(uri), body)
 
 	return &br
 }
 
-// Do ...
+// Do executes the BridgeRequest and returns the response body or any error
+// that has occurred.
 func (br BridgeRequest) Do() ([]byte, error) {
 	client := &http.Client{}
 	resp, err := client.Do(br.Request)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	var data []byte
-	data, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("Hue Request failed: %s", data)
+		data, _ := ioutil.ReadAll(resp.Body)
+		return nil, errors.Errorf("Hue Request failed: %s", data)
 	}
+	defer resp.Body.Close()
 
-	return data, err
+	return ioutil.ReadAll(resp.Body)
 }
 
 func (b Bridge) toURI(route string) string {
