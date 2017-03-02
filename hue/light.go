@@ -53,15 +53,15 @@ type NewLightScan struct {
 	LastScan string `json:"lastscan"`
 }
 
-// LightSearchRequest is the body of the request being sent on a InitLightSearch
+// SearchRequest is the body of the request being sent on a InitLightSearch
 // call.
-type LightSearchRequest struct {
+type SearchRequest struct {
 	DeviceIDs []string `json:"deviceid"`
 }
 
-// LightSearchResponse is the body of the response from a InitLightSearch call.
-type LightSearchResponse struct {
-	Success map[string]string `json:"success"`
+// SearchResponse is the body of the response from a InitLightSearch call.
+type SearchResponse struct {
+	Success interface{} `json:"success"`
 }
 
 // GetLights retrieves all lights in the Bridge's network.
@@ -90,34 +90,37 @@ func GetNewLights(b Bridge) (*NewLightScan, error) {
 	return &lights, err
 }
 
-// InitLightSearch opens the bridge for 40s. The overall search might take
+// InitLightSearch  starts a search for new lights. As of 1.3 will also
+// find switches (e.g. "tap")
+//
+// The bridge will open the network for 40s. The overall search might take
 // longer since the configuration of (multiple) new devices can take longer.
 // If many devices are found the command will have to be issued a second time
 // after discovery time has elapsed. If the command is received again during
 // search the search will continue for at least an additional 40s.
 //
-// When the search has finished, new lights will be available using
-// `GetNewLights`. In addition, the new lights will now be available by
-// calling `GetLights` or by calling get group attributes on group 0.
-// Group 0 is a special group that cannot be deleted and will always contain
-// all lights known by the bridge.
-func InitLightSearch(b Bridge, ids ...string) error {
+// When the search has finished, new lights will be available using the get new
+// lights command. In addition, the new lights will now be available by calling
+// get all lights or by calling get group attributes on group 0. Group 0 is a
+// special group that cannot be deleted and will always contain all lights known
+// by the bridge.
+func InitLightSearch(b Bridge, ids []string) (*SearchResponse, error) {
 	var body []byte
 	if len(ids) > 0 {
-		req := LightSearchRequest{
+		req := SearchRequest{
 			DeviceIDs: ids,
 		}
 		body, _ = json.Marshal(req)
 	}
 	data, err := b.NewRequest("POST", fmt.Sprintf("%s/lights", os.Getenv("HUE_USER")), bytes.NewBuffer(body)).Do()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	var resp []LightSearchResponse
+	var resp SearchResponse
 	err = json.Unmarshal(data, &resp)
 
-	return err
+	return &resp, err
 }
 
 // GetLight gets the attributes and state of a given light.
@@ -149,6 +152,8 @@ func RenameLight(b Bridge, id, name string) error {
 		return err
 	}
 
-	var l []LightSearchResponse
-	return json.Unmarshal(data, &l)
+	fmt.Println(data)
+	return nil
+	// var l []LightSearchResponse
+	// return json.Unmarshal(data, &l)
 }

@@ -97,6 +97,10 @@ func (b Bridge) NewRequest(method, uri string, body io.Reader) *BridgeRequest {
 // Do executes the BridgeRequest and returns the response body or any error
 // that has occurred.
 func (br BridgeRequest) Do() ([]byte, error) {
+	if os.Getenv("HUE_USER") == "" {
+		return nil, errors.Errorf("no user has been provided")
+	}
+
 	client := &http.Client{}
 	resp, err := client.Do(br.Request)
 	if err != nil {
@@ -105,7 +109,7 @@ func (br BridgeRequest) Do() ([]byte, error) {
 
 	if resp.StatusCode != 200 {
 		data, _ := ioutil.ReadAll(resp.Body)
-		return nil, errors.Errorf("Hue Request failed: %s", data)
+		return nil, errors.Errorf("%s", data)
 	}
 	defer resp.Body.Close()
 

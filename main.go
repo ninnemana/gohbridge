@@ -1,3 +1,5 @@
+// 97.90.224.136
+
 package main
 
 import (
@@ -5,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/ninnemana/gohbridge/hue"
+	"github.com/ninnemana/gohbridge/api"
 	"github.com/pressly/chi"
 	"github.com/pressly/chi/docgen"
 	"github.com/pressly/chi/middleware"
@@ -16,28 +18,23 @@ var routes = flag.Bool("routes", false, "Generate router documentation")
 func main() {
 	flag.Parse()
 
-	bridge, err := hue.Discover()
-	if err != nil {
-		panic(err)
-	}
-	if len(bridge) == 0 {
-		panic("no bridge found")
-	}
-
-	lights, err := hue.GetLights(bridge[0])
-	if err != nil {
-		panic(err)
-	}
-
-	for _, light := range lights {
-		fmt.Printf("%+v\n", light)
-	}
-
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(middleware.RedirectSlashes)
+	r.Use(api.WithService)
+
+	r.Route("/bridge", func(r chi.Router) {
+		r.Get("/", api.ListBridges)
+		r.Get("/:bridgeID", api.GetBridge)
+	})
+
+	r.Route("/light", func(r chi.Router) {
+		r.Get("/", api.ListLights)
+		r.Get("/:lightID", api.GetLight)
+	})
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("root."))

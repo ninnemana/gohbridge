@@ -50,7 +50,7 @@ func TestGetNewLights(t *testing.T) {
 
 func TestInitLightSearch(t *testing.T) {
 
-	err := InitLightSearch(Bridge{})
+	_, err := InitLightSearch(Bridge{}, nil)
 	if err == nil {
 		t.Fatal("empty bridge should fail")
 	}
@@ -65,12 +65,12 @@ func TestInitLightSearch(t *testing.T) {
 		return
 	}
 
-	err = InitLightSearch(ll[0])
+	_, err = InitLightSearch(ll[0], nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = InitLightSearch(ll[0], "adfjka")
+	_, err = InitLightSearch(ll[0], []string{"adfjka"})
 	if err != nil {
 		t.Fatal(err)
 	}
