@@ -29,6 +29,8 @@ type Service struct {
 	Bridge          *hue.Bridge
 }
 
+// WithService is our middleware wrapper that authenticates an API request
+// and scopes the service to the request context.
 func WithService(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var s Service
@@ -45,12 +47,13 @@ func WithService(next http.Handler) http.Handler {
 		}
 
 		s.Bridge = &bridges[0]
-
 		err = s.auth(r.Header)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
+
+		s.Bridge.User = s.User
 
 		ctx := context.WithValue(r.Context(), contextKeyToken, s)
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -64,6 +67,7 @@ func (s *Service) auth(h http.Header) error {
 	}
 
 	s.User = val
+	s.Bridge.User = val
 
 	return nil
 }

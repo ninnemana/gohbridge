@@ -67,52 +67,35 @@ type SearchResponse struct {
 
 // GetLights retrieves all lights in the Bridge's network.
 func GetLights(b Bridge) (map[string]Light, error) {
-	resp, err := b.NewRequest("GET", "/lights", nil).Do()
+	data, err := b.NewRequest("GET", "/lights", nil, false).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	switch resp.(type) {
-	case map[string]Light:
-		return resp.(map[string]Light), nil
-	case []interface{}:
-		bridgeErr, ok := readError(resp)
-		if !ok {
-			goto genError
-		}
-
-		return nil, errors.Errorf("failed to get lights: %s", bridgeErr[0].Error.Description)
-	genError:
-		return nil, errors.New("failed to get lights")
+	lights := make(map[string]Light, 0)
+	errResp := readJSON(&lights, data)
+	switch errResp {
+	case nil:
+		return lights, nil
 	default:
-		return nil, errors.New("failed to get lights")
+		return nil, errors.Errorf("failed to fetch lights: %s", errResp.Error.Description)
 	}
-
-	// return lights, err
 }
 
 // GetNewLights retrieves any new, un-configured lights on the Bridge's network.
 func GetNewLights(b Bridge) (*NewLightScan, error) {
-	obj, err := b.NewRequest("GET", "/lights/new", nil).Do()
+	obj, err := b.NewRequest("GET", "/lights/new", nil, false).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	switch obj.(type) {
-	case NewLightScan:
-		state := obj.(NewLightScan)
-		return &state, nil
-	case []interface{}:
-		bridgeErr, ok := readError(obj)
-		if !ok {
-			goto genError
-		}
-
-		return nil, errors.Errorf("failed to get new lights: %s", bridgeErr[0].Error.Description)
-	genError:
-		return nil, errors.New("failed to get new lights")
+	scan := &NewLightScan{}
+	errResp := readJSON(scan, obj)
+	switch errResp {
+	case nil:
+		return scan, nil
 	default:
-		return nil, errors.New("failed to get new lights")
+		return nil, errors.Errorf("failed to scan for new lights: %s", errResp.Error.Description)
 	}
 }
 
@@ -139,51 +122,35 @@ func InitLightSearch(b Bridge, ids []string) (*SearchResponse, error) {
 		body, _ = json.Marshal(req)
 	}
 
-	obj, err := b.NewRequest("POST", "/lights", bytes.NewBuffer(body)).Do()
+	obj, err := b.NewRequest("POST", "/lights", bytes.NewBuffer(body), false).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	switch obj.(type) {
-	case SearchResponse:
-		state := obj.(SearchResponse)
-		return &state, nil
-	case []interface{}:
-		bridgeErr, ok := readError(obj)
-		if !ok {
-			goto genError
-		}
-
-		return nil, errors.Errorf("failed to initialize search: %s", bridgeErr[0].Error.Description)
-	genError:
-		return nil, errors.New("failed to initialize search")
+	sr := &SearchResponse{}
+	errResp := readJSON(sr, obj)
+	switch errResp {
+	case nil:
+		return sr, nil
 	default:
-		return nil, errors.New("failed to initialize search")
+		return nil, errors.Errorf("failed to initialize search: %s", errResp.Error.Description)
 	}
 }
 
 // GetLight gets the attributes and state of a given light.
 func GetLight(b Bridge, id string) (*Light, error) {
-	obj, err := b.NewRequest("GET", fmt.Sprintf("/lights/%s", id), nil).Do()
+	obj, err := b.NewRequest("GET", fmt.Sprintf("/lights/%s", id), nil, false).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	switch obj.(type) {
-	case Light:
-		state := obj.(Light)
-		return &state, nil
-	case []interface{}:
-		bridgeErr, ok := readError(obj)
-		if !ok {
-			goto genError
-		}
-
-		return nil, errors.Errorf("failed to get light: %s", bridgeErr[0].Error.Description)
-	genError:
-		return nil, errors.New("failed to get light")
+	l := &Light{}
+	errResp := readJSON(l, obj)
+	switch errResp {
+	case nil:
+		return l, nil
 	default:
-		return nil, errors.New("failed to get light")
+		return nil, errors.Errorf("failed to get light: %s", errResp.Error.Description)
 	}
 }
 
@@ -198,7 +165,7 @@ func RenameLight(b Bridge, id, name string) error {
 
 	body := []byte(fmt.Sprintf("{\"name\": \"%s\"}", name))
 
-	data, err := b.NewRequest("PUT", fmt.Sprintf("/lights/%s", id), bytes.NewBuffer(body)).Do()
+	data, err := b.NewRequest("PUT", fmt.Sprintf("/lights/%s", id), bytes.NewBuffer(body), false).Do()
 	if err != nil {
 		return err
 	}

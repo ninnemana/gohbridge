@@ -7,6 +7,10 @@ import (
 	"testing"
 )
 
+var (
+	testUser = "6P1KtzwOPY0aiDHOVU4jx7Mn4oPNTqhi6v81hSbG"
+)
+
 type DiscoverHandler struct {
 	sync.Mutex
 }
@@ -95,7 +99,7 @@ func TestDo(t *testing.T) {
 		t.Fatal("should error on empty request")
 	}
 
-	_, err = br.Bridge.NewRequest("GET", "/", nil).Do()
+	_, err = br.Bridge.NewRequest("GET", "/", nil, false).Do()
 	if err == nil {
 		t.Fatal("should error on empty request")
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/pressly/chi/render"
 )
 
+// ListBridges returns an array of available bridges on the current network.
 func ListBridges(w http.ResponseWriter, r *http.Request) {
 
 	s, ok := r.Context().Value(contextKeyToken).(Service)
@@ -26,6 +27,7 @@ func ListBridges(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, bridges)
 }
 
+// GetBridge returns the details of a specific bridge.
 func GetBridge(w http.ResponseWriter, r *http.Request) {
 
 	s, ok := r.Context().Value(contextKeyToken).(Service)

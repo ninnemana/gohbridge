@@ -24,17 +24,8 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RedirectSlashes)
-	r.Use(api.WithService)
 
-	r.Route("/bridge", func(r chi.Router) {
-		r.Get("/", api.ListBridges)
-		r.Get("/:bridgeID", api.GetBridge)
-	})
-
-	r.Route("/light", func(r chi.Router) {
-		r.Get("/", api.ListLights)
-		r.Get("/:lightID", api.GetLight)
-	})
+	r.Mount("/", protectedRoutes())
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("root."))
@@ -53,4 +44,25 @@ func main() {
 	}
 
 	http.ListenAndServe(":8080", r)
+}
+
+func protectedRoutes() http.Handler {
+	r := chi.NewRouter()
+	r.Use(api.WithService)
+
+	r.Route("/bridge", func(r chi.Router) {
+		r.Get("/", api.ListBridges)
+		r.Get("/:bridgeID", api.GetBridge)
+	})
+
+	r.Route("/light", func(r chi.Router) {
+		r.Get("/", api.ListLights)
+		r.Get("/:lightID", api.GetLight)
+	})
+
+	r.Route("/config", func(r chi.Router) {
+		r.Get("/", api.GetConfig)
+	})
+
+	return r
 }

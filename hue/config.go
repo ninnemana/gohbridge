@@ -81,28 +81,34 @@ func CreateUser(b Bridge) (*NewUser, error) {
 		return nil, err
 	}
 
-	obj, err := b.NewRequest("POST", "", bytes.NewBuffer(data)).Do()
+	obj, err := b.NewRequest("POST", "", bytes.NewBuffer(data), true).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	switch obj.(type) {
-	case NewUserResponse:
-		state := obj.(NewUserResponse)
-		if len(state) == 0 {
-			return nil, errors.New("user was not created")
-		}
-		return &state[0].Success, nil
-	case []interface{}:
-		bridgeErr, ok := readError(obj)
-		if !ok {
-			goto genError
-		}
-
-		return nil, errors.Errorf("failed to create user: %s", bridgeErr[0].Error.Description)
-	genError:
-		return nil, errors.New("failed to create user")
+	nu := &NewUser{}
+	errResp := readJSON(nu, obj)
+	switch errResp {
+	case nil:
+		return nu, nil
 	default:
-		return nil, errors.New("failed to create user")
+		return nil, errors.Errorf("faield to create new user: %s", errResp.Error.Description)
+	}
+}
+
+// GetConfig returns list of all configuration elements in the bridge. Note all times are stored in UTC.
+func GetConfig(b Bridge) (*Config, error) {
+	data, err := b.NewRequest("GET", "/config", nil, false).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := &Config{}
+	errResp := readJSON(cfg, data)
+	switch errResp {
+	case nil:
+		return cfg, nil
+	default:
+		return nil, errors.Errorf("failed to fetch config: %s", errResp.Error.Description)
 	}
 }

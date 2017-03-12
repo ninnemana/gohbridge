@@ -23,16 +23,17 @@ type BridgeNetwork struct {
 // BridgeRequest describes a request to be executed against a
 // provided Bridge.
 type BridgeRequest struct {
-	Bridge  Bridge
-	Request *http.Request
-	Error   error
+	Bridge   Bridge
+	Request  *http.Request
+	SkipAuth bool
+	Error    error
 }
 
 // Bridge defines a unique Philips Hue Bridge.
 type Bridge struct {
 	BridgeNetwork
 	ID   string `json:"id" xml:"id"`
-	User string `json:"user" xml:"user"`
+	User string `json:"user,omitempty" xml:"user"`
 }
 
 // ErrorResponse wraps the returned error.
@@ -85,44 +86,37 @@ func Discover() ([]Bridge, error) {
 // GetState delivers the returned specific of how the Bridge is feeling, or an
 // error if it fails to query the REST API, or parsing the JSON.
 func (b Bridge) GetState() (*BridgeState, error) {
-	obj, err := b.NewRequest("GET", "", nil).Do()
+	obj, err := b.NewRequest("GET", "", nil, false).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	switch obj.(type) {
-	case BridgeState:
-		state := obj.(BridgeState)
-		return &state, nil
-	case []interface{}:
-		bridgeErr, ok := readError(obj)
-		if !ok {
-			goto genError
-		}
-
-		return nil, errors.Errorf("failed to get bridge state: %s", bridgeErr[0].Error.Description)
-	genError:
-		return nil, errors.New("failed to get bridge state")
+	bs := &BridgeState{}
+	errResp := readJSON(bs, obj)
+	switch errResp {
+	case nil:
+		return bs, nil
 	default:
-		return nil, errors.New("failed to get bridge state")
+		return nil, errors.Errorf("failed to fetch bridge state: %s", errResp.Error.Description)
 	}
 }
 
 // NewRequest creates a new request that is bound to the assigned bridge.
-func (b Bridge) NewRequest(method, uri string, body io.Reader) *BridgeRequest {
+func (b Bridge) NewRequest(method, uri string, body io.Reader, skip bool) *BridgeRequest {
 	br := BridgeRequest{
-		Bridge: b,
+		Bridge:   b,
+		SkipAuth: skip,
 	}
 
-	br.Request, _ = http.NewRequest(method, b.toURI(uri), body)
+	br.Request, _ = http.NewRequest(method, b.toURI(uri, skip), body)
 
 	return &br
 }
 
 // Do executes the BridgeRequest and returns the response body or any error
 // that has occurred.
-func (br BridgeRequest) Do() (interface{}, error) {
-	if br.Bridge.User == "" {
+func (br BridgeRequest) Do() ([]byte, error) {
+	if !br.SkipAuth && br.Bridge.User == "" {
 		return nil, errors.Errorf("no user has been provided")
 	}
 
@@ -131,21 +125,54 @@ func (br BridgeRequest) Do() (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	if resp.StatusCode != 200 {
-		data, _ := ioutil.ReadAll(resp.Body)
-		return nil, errors.Errorf("%s", data)
+	if resp.Body == nil {
+		return nil, errors.New("failed to parse response")
 	}
 	defer resp.Body.Close()
 
-	var ifc []interface{}
-	err = json.NewDecoder(resp.Body).Decode(&ifc)
-
-	return ifc, err
+	data, err := ioutil.ReadAll(resp.Body)
+	switch {
+	case resp.StatusCode != 200 && err == nil:
+		return nil, errors.Errorf("%s", data)
+	case resp.StatusCode != 200:
+		return nil, errors.New("failed to make request")
+	default:
+		return data, nil
+	}
 }
 
-func (b Bridge) toURI(route string) string {
-	return fmt.Sprintf("http://%s/api/%s%s", b.InternalIP, b.User, route)
+func (b Bridge) toURI(route string, skip bool) string {
+	switch skip {
+	case true:
+		return fmt.Sprintf("http://%s/api%s", b.InternalIP, route)
+	default:
+		return fmt.Sprintf("http://%s/api/%s%s", b.InternalIP, b.User, route)
+	}
+
+}
+
+func readJSON(ifc interface{}, data []byte) *ErrorResponse {
+	err := json.Unmarshal(data, ifc)
+	switch err {
+	case nil:
+		return nil
+	default:
+		er := []ErrorResponse{}
+		err = json.Unmarshal(data, &er)
+		if err != nil {
+			er = []ErrorResponse{
+				ErrorResponse{
+					Error: BridgeError{
+						Address:     "",
+						Type:        0,
+						Description: err.Error(),
+					},
+				},
+			}
+		}
+
+		return &er[0]
+	}
 }
 
 func readError(errors interface{}) ([]ErrorResponse, bool) {
