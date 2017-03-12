@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
+
+	"github.com/pkg/errors"
 )
 
 // Light the attributes and state of a given light.
@@ -66,28 +67,53 @@ type SearchResponse struct {
 
 // GetLights retrieves all lights in the Bridge's network.
 func GetLights(b Bridge) (map[string]Light, error) {
-	data, err := b.NewRequest("GET", fmt.Sprintf("%s/lights", os.Getenv("HUE_USER")), nil).Do()
+	resp, err := b.NewRequest("GET", "/lights", nil).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	var lights map[string]Light
-	err = json.Unmarshal(data, &lights)
+	switch resp.(type) {
+	case map[string]Light:
+		return resp.(map[string]Light), nil
+	case []interface{}:
+		bridgeErr, ok := readError(resp)
+		if !ok {
+			goto genError
+		}
 
-	return lights, err
+		return nil, errors.Errorf("failed to get lights: %s", bridgeErr[0].Error.Description)
+	genError:
+		return nil, errors.New("failed to get lights")
+	default:
+		return nil, errors.New("failed to get lights")
+	}
+
+	// return lights, err
 }
 
 // GetNewLights retrieves any new, un-configured lights on the Bridge's network.
 func GetNewLights(b Bridge) (*NewLightScan, error) {
-	data, err := b.NewRequest("GET", fmt.Sprintf("%s/lights/new", os.Getenv("HUE_USER")), nil).Do()
+	obj, err := b.NewRequest("GET", "/lights/new", nil).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	var lights NewLightScan
-	err = json.Unmarshal(data, &lights)
+	switch obj.(type) {
+	case NewLightScan:
+		state := obj.(NewLightScan)
+		return &state, nil
+	case []interface{}:
+		bridgeErr, ok := readError(obj)
+		if !ok {
+			goto genError
+		}
 
-	return &lights, err
+		return nil, errors.Errorf("failed to get new lights: %s", bridgeErr[0].Error.Description)
+	genError:
+		return nil, errors.New("failed to get new lights")
+	default:
+		return nil, errors.New("failed to get new lights")
+	}
 }
 
 // InitLightSearch  starts a search for new lights. As of 1.3 will also
@@ -112,28 +138,53 @@ func InitLightSearch(b Bridge, ids []string) (*SearchResponse, error) {
 		}
 		body, _ = json.Marshal(req)
 	}
-	data, err := b.NewRequest("POST", fmt.Sprintf("%s/lights", os.Getenv("HUE_USER")), bytes.NewBuffer(body)).Do()
+
+	obj, err := b.NewRequest("POST", "/lights", bytes.NewBuffer(body)).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	var resp SearchResponse
-	err = json.Unmarshal(data, &resp)
+	switch obj.(type) {
+	case SearchResponse:
+		state := obj.(SearchResponse)
+		return &state, nil
+	case []interface{}:
+		bridgeErr, ok := readError(obj)
+		if !ok {
+			goto genError
+		}
 
-	return &resp, err
+		return nil, errors.Errorf("failed to initialize search: %s", bridgeErr[0].Error.Description)
+	genError:
+		return nil, errors.New("failed to initialize search")
+	default:
+		return nil, errors.New("failed to initialize search")
+	}
 }
 
 // GetLight gets the attributes and state of a given light.
 func GetLight(b Bridge, id string) (*Light, error) {
-	data, err := b.NewRequest("GET", fmt.Sprintf("%s/lights/%s", os.Getenv("HUE_USER"), id), nil).Do()
+	obj, err := b.NewRequest("GET", fmt.Sprintf("/lights/%s", id), nil).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	var l *Light
-	err = json.Unmarshal(data, &l)
+	switch obj.(type) {
+	case Light:
+		state := obj.(Light)
+		return &state, nil
+	case []interface{}:
+		bridgeErr, ok := readError(obj)
+		if !ok {
+			goto genError
+		}
 
-	return l, err
+		return nil, errors.Errorf("failed to get light: %s", bridgeErr[0].Error.Description)
+	genError:
+		return nil, errors.New("failed to get light")
+	default:
+		return nil, errors.New("failed to get light")
+	}
 }
 
 // RenameLight gets the attributes and state of a given light.
@@ -147,7 +198,7 @@ func RenameLight(b Bridge, id, name string) error {
 
 	body := []byte(fmt.Sprintf("{\"name\": \"%s\"}", name))
 
-	data, err := b.NewRequest("PUT", fmt.Sprintf("%s/lights/%s", os.Getenv("HUE_USER"), id), bytes.NewBuffer(body)).Do()
+	data, err := b.NewRequest("PUT", fmt.Sprintf("/lights/%s", id), bytes.NewBuffer(body)).Do()
 	if err != nil {
 		return err
 	}

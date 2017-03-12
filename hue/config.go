@@ -1,5 +1,12 @@
 package hue
 
+import (
+	"bytes"
+	"encoding/json"
+
+	"github.com/pkg/errors"
+)
+
 // Config defines the configuration of the Hub network.
 type Config struct {
 	Name             string               `json:"name"`             // Name of the bridge. This is also its uPnP name, so will reflect the actual uPnP name after any conflicts have been resolved.
@@ -40,4 +47,62 @@ type SWUpdate struct {
 	URL         string `json:"url"`
 	Text        string `json:"text"`
 	Notify      bool   `json:"notify"`
+}
+
+// NewUser
+type NewUser struct {
+	Username string `json:"username"`
+}
+
+type NewUserResponse []struct {
+	Success NewUser `json:"success"`
+}
+
+type NewUserRequest struct {
+	DeviceType string `json:"devicetype"`
+}
+
+// CreateUser creates a new user. The link button on the bridge must be
+// pressed and this command executed within 30 seconds.
+//
+// Once a new user has been created, the user key is added to a ‘whitelist’,
+// allowing access to API commands that require a whitelisted user. At present,
+// all other API commands require a whitelisted user.
+//
+// All published apps are asked to use the name of their app as the devicetype.
+func CreateUser(b Bridge) (*NewUser, error) {
+
+	dr := NewUserRequest{
+		DeviceType: b.ID,
+	}
+
+	data, err := json.Marshal(dr)
+	if err != nil {
+		return nil, err
+	}
+
+	obj, err := b.NewRequest("POST", "", bytes.NewBuffer(data)).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	switch obj.(type) {
+	case NewUserResponse:
+		state := obj.(NewUserResponse)
+		if len(state) == 0 {
+			return nil, errors.New("user was not created")
+		}
+		return &state[0].Success, nil
+	case []interface{}:
+		bridgeErr, ok := readError(obj)
+		if !ok {
+			goto genError
+		}
+
+		return nil, errors.Errorf("failed to create user: %s", bridgeErr[0].Error.Description)
+	genError:
+		return nil, errors.New("failed to create user")
+	default:
+		return nil, errors.New("failed to create user")
+	}
 }

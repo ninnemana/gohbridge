@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 
 	"github.com/pkg/errors"
 )
@@ -32,7 +31,20 @@ type BridgeRequest struct {
 // Bridge defines a unique Philips Hue Bridge.
 type Bridge struct {
 	BridgeNetwork
-	ID string `json:"id" xml:"id"`
+	ID   string `json:"id" xml:"id"`
+	User string `json:"user" xml:"user"`
+}
+
+// ErrorResponse wraps the returned error.
+type ErrorResponse struct {
+	Error BridgeError `json:"error"`
+}
+
+// BridgeError defines the error object coming back from the Hue Bridge.
+type BridgeError struct {
+	Address     string  `json:"address"`
+	Description string  `json:"description"`
+	Type        float64 `json:"type"`
 }
 
 // BridgeState represents the current logical state of the Hue Bridge.
@@ -73,14 +85,27 @@ func Discover() ([]Bridge, error) {
 // GetState delivers the returned specific of how the Bridge is feeling, or an
 // error if it fails to query the REST API, or parsing the JSON.
 func (b Bridge) GetState() (*BridgeState, error) {
-	data, err := b.NewRequest("GET", os.Getenv("HUE_USER"), nil).Do()
+	obj, err := b.NewRequest("GET", "", nil).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	var bs *BridgeState
-	err = json.Unmarshal(data, &bs)
-	return bs, err
+	switch obj.(type) {
+	case BridgeState:
+		state := obj.(BridgeState)
+		return &state, nil
+	case []interface{}:
+		bridgeErr, ok := readError(obj)
+		if !ok {
+			goto genError
+		}
+
+		return nil, errors.Errorf("failed to get bridge state: %s", bridgeErr[0].Error.Description)
+	genError:
+		return nil, errors.New("failed to get bridge state")
+	default:
+		return nil, errors.New("failed to get bridge state")
+	}
 }
 
 // NewRequest creates a new request that is bound to the assigned bridge.
@@ -96,8 +121,8 @@ func (b Bridge) NewRequest(method, uri string, body io.Reader) *BridgeRequest {
 
 // Do executes the BridgeRequest and returns the response body or any error
 // that has occurred.
-func (br BridgeRequest) Do() ([]byte, error) {
-	if os.Getenv("HUE_USER") == "" {
+func (br BridgeRequest) Do() (interface{}, error) {
+	if br.Bridge.User == "" {
 		return nil, errors.Errorf("no user has been provided")
 	}
 
@@ -113,9 +138,76 @@ func (br BridgeRequest) Do() ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	return ioutil.ReadAll(resp.Body)
+	var ifc []interface{}
+	err = json.NewDecoder(resp.Body).Decode(&ifc)
+
+	return ifc, err
 }
 
 func (b Bridge) toURI(route string) string {
-	return fmt.Sprintf("http://%s/api/%s", b.InternalIP, route)
+	return fmt.Sprintf("http://%s/api/%s%s", b.InternalIP, b.User, route)
+}
+
+func readError(errors interface{}) ([]ErrorResponse, bool) {
+
+	var vals []interface{}
+	switch errors.(type) {
+	case []interface{}:
+		vals = errors.([]interface{})
+	case interface{}:
+		vals = []interface{}{errors.(interface{})}
+	default:
+		return nil, false
+	}
+
+	berrs := make([]ErrorResponse, 0)
+	for _, err := range vals {
+		var errMap map[string]interface{}
+		switch err.(type) {
+		case map[string]interface{}:
+			errMap = err.(map[string]interface{})
+		default:
+			continue
+		}
+
+		errDef, ok := errMap["error"]
+		if !ok {
+			continue
+		}
+
+		switch errDef.(type) {
+		case map[string]interface{}:
+			errMap = errDef.(map[string]interface{})
+		default:
+			continue
+		}
+
+		var be BridgeError
+
+		// get address
+		switch errMap["address"].(type) {
+		case string:
+			be.Address = errMap["address"].(string)
+		}
+
+		// get description
+		switch errMap["description"].(type) {
+		case string:
+			be.Description = errMap["description"].(string)
+		}
+
+		// get type
+		switch errMap["type"].(type) {
+		case int:
+			be.Type = errMap["type"].(float64)
+		case float32:
+			be.Type = errMap["type"].(float64)
+		case float64:
+			be.Type = errMap["type"].(float64)
+		}
+
+		berrs = append(berrs, ErrorResponse{Error: be})
+	}
+
+	return berrs, (len(berrs) == len(vals))
 }

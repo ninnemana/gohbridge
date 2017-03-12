@@ -2,16 +2,17 @@ package hue
 
 import (
 	"net/http"
+	"net/http/httptest"
+	"sync"
 	"testing"
 )
 
-func TestMain(m *testing.M) {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(500)
-	})
-	http.ListenAndServe(":9999", nil)
+type DiscoverHandler struct {
+	sync.Mutex
+}
 
-	m.Run()
+func (h *DiscoverHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(200)
 }
 
 func TestDiscover(t *testing.T) {
@@ -24,8 +25,12 @@ func TestDiscover(t *testing.T) {
 	}
 	portalURL = urlBackup
 
+	handler := &DiscoverHandler{}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
 	urlBackup = portalURL
-	portalURL = "http://localhost:9999"
+	portalURL = server.URL
 	_, err = Discover()
 	if err == nil {
 		t.Fatal("error should not be nil")
@@ -66,8 +71,10 @@ func TestGetState(t *testing.T) {
 	}
 	ll[0].InternalIP = ip
 
+	ll[0].User = "random_user"
+
 	_, err = ll[0].GetState()
-	if err != nil {
+	if err == nil {
 		t.Fatal(err)
 	}
 }
