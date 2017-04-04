@@ -1,43 +1,32 @@
-machine:
-  services:
-    - docker
-  environment:
-    GODIST: "go1.7.linux-amd64.tar.gz"
-    GOPATH: /home/ubuntu/.go_workspace
-    IMPORT_PATH: "github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
-  post:
-    - mkdir -p download
-    - test -e download/$GODIST || curl -o download/$GODIST https://storage.googleapis.com/golang/$GODIST
-    - sudo rm -rf /usr/local/go
-    - sudo tar -C /usr/local -xzf download/$GODIST
+version: 2
+jobs:
+  build:
+    docker:
+      - image: golang:1.8.0
 
-general:
-  build_dir: ../.go_workspace/src/$IMPORT_PATH
+    working_directory: /go/src/github.com/ninnemana/gohbridge
 
-checkout:
-  post:
-    - mkdir -p "$GOPATH/src/$IMPORT_PATH"
-    - rsync -azC --delete $HOME/$CIRCLE_PROJECT_REPONAME/ $GOPATH/src/$IMPORT_PATH/
+    steps:
+      - checkout
 
-dependencies:
-  pre:
-    - go get github.com/tools/godep
+      - run:
+          name: Get dependencies
+          command: |
+            go get -u github.com/golang/dep/...
+      - run:
+          name: Ensure dependencies
+          command: |
+            dep ensure
+      - run:
+          name: GoVet
+          command: |
+            go vet ./...
+      - run:
+          name: GoTest
+          command: |
+            go test -v ./...
 
-  override:
-    - godep restore
-    - CGO_ENABLED=0 go build -a -installsuffix nocgo .
-    - docker login -u $DOCKER_USERNAME -p $DOCKER_PWD -e "$DOCKER_EMAIL" quay.io
-    - docker build -t quay.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:${CIRCLE_SHA1:0:7} .
-
-test:
-  pre:
-    - go vet ./...
-
-  override:
-    - godep go test ./...
-
-deployment:
-  quayio:
-    branch: master
-    commands:
-      - docker push quay.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:${CIRCLE_SHA1:0:7}
+      - run:
+          name: Deploy
+          command: |
+            docker push quay.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:${CIRCLE_SHA1:0:7}
