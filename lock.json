@@ -1,0 +1,24 @@
+{
+    "memo": "5741722ade06229ba47ecb60e2bf0b387f9845f7673c3034cf94d6cc79ceeaf0",
+    "projects": [
+        {
+            "name": "github.com/pkg/errors",
+            "version": "v0.8.0",
+            "revision": "645ef00459ed84a119197bfb8d8205042c6df63d",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/pressly/chi",
+            "branch": "master",
+            "revision": "822e7b85e22b3f7a573782c3674edf8e732fb427",
+            "packages": [
+                ".",
+                "docgen",
+                "middleware",
+                "render"
+            ]
+        }
+    ]
+}
