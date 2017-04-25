@@ -25,7 +25,9 @@ jobs:
       - run:
           name: GoTest
           command: |
-            go test -v ./...
+            go test -v api/...
+            go test -v hue/...
+            go test -v .
 
       - run:
           name: Deploy
