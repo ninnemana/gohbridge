@@ -44,5 +44,5 @@ jobs:
           name: Deploy
           command: |
             TAG=0.1.$CIRCLE_BUILD_NUM
-            docker build -t quay.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:$TAG
+            docker build -t quay.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:$TAG .
             docker push quay.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:$TAG
