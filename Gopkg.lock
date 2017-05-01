@@ -1,4 +1,10 @@
-memo = "958d39a986917fc7301cd21765161d5dfbd57f495e6db6d1fa29c42ffcb992c0"
+memo = "fd1d8451332a8ab665b7472bb85104a7262ce185ee637500a6cf869dbfab8747"
+
+[[projects]]
+  name = "github.com/google/uuid"
+  packages = ["."]
+  revision = "064e2069ce9c359c118179501254f67d7d37ba24"
+  version = "0.2"
 
 [[projects]]
   branch = "master"
