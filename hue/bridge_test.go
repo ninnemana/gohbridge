@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/pborman/uuid"
+	"github.com/google/uuid"
 )
 
 var (
@@ -44,7 +44,7 @@ func (h *DiscoverHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		obj = []Bridge{
 			Bridge{
-				ID:   uuid.NewUUID().String(),
+				ID:   uuid.New().String(),
 				User: "discover",
 				BridgeNetwork: BridgeNetwork{
 					InternalIP: h.Address,
