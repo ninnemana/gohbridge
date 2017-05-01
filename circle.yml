@@ -30,6 +30,10 @@ jobs:
             go test -v ./api/...
             go test -v ./hue/...
             go test -v .
+      - run:
+          name: Build
+          command: |
+            go build -o gohbridge .
 
       - run:
           name: Install Docker client
