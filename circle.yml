@@ -28,15 +28,15 @@ jobs:
       - run:
           name: GoTest
           command: |
-            go test -v -cover -coverprofile=/home/ubuntu/api_coverage.out ./api/...
-            go test -v -cover -coverprofile=/home/ubuntu/hue_coverage.out ./hue/...
-            go test -v -cover -coverprofile=/home/ubuntu/coverage.out .
+            go test -v -cover -coverprofile=/go/src/github.com/ninnemana/gohbridge/api_coverage.out ./api/...
+            go test -v -cover -coverprofile=/go/src/github.com/ninnemana/gohbridge/hue_coverage.out ./hue/...
+            go test -v -cover -coverprofile=/go/src/github.com/ninnemana/gohbridge/coverage.out .
       - run:
           name: Coveralls
           command: |
-            /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=/home/ubuntu/api_coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
-            /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=/home/ubuntu/hue_coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
-            /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=/home/ubuntu/coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+            /go/bin/goveralls -coverprofile=/go/src/github.com/ninnemana/gohbridge/api_coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+            /go/bin/goveralls -coverprofile=/go/src/github.com/ninnemana/gohbridge/hue_coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+            /go/bin/goveralls -coverprofile=/go/src/github.com/ninnemana/gohbridge/coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
       - run:
           name: Build
           command: |

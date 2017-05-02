@@ -62,8 +62,10 @@ func TestCreateUser(t *testing.T) {
 		return
 	}
 
-	user, err := CreateUser(ll[0])
-	t.Log(user, err)
+	// _, err = CreateUser(ll[0])
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
 }
 
 func TestGetConfig(t *testing.T) {
