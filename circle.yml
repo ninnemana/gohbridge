@@ -16,6 +16,7 @@ jobs:
           name: Get dependencies
           command: |
             go get -u github.com/golang/dep/...
+            go get github.com/mattn/goveralls
       - run:
           name: Ensure dependencies
           command: |
@@ -27,9 +28,15 @@ jobs:
       - run:
           name: GoTest
           command: |
-            go test -v ./api/...
-            go test -v ./hue/...
-            go test -v .
+            go test -v -cover -race -coverprofile=/home/ubuntu/api_coverage.out ./api/...
+            go test -v -cover -race -coverprofile=/home/ubuntu/hue_coverage.out ./hue/...
+            go test -v -cover -race -coverprofile=/home/ubuntu/coverage.out .
+      - run:
+          name: Coveralls
+          command: |
+            /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=/home/ubuntu/api_coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+            /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=/home/ubuntu/hue_coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+            /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=/home/ubuntu/coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
       - run:
           name: Build
           command: |
