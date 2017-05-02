@@ -28,6 +28,7 @@ jobs:
       - run:
           name: GoTest
           command: |
+            touch api_coverage.out hue_coverage.out coverage.out
             go test -v -cover -coverprofile=/go/src/github.com/ninnemana/gohbridge/api_coverage.out ./api/...
             go test -v -cover -coverprofile=/go/src/github.com/ninnemana/gohbridge/hue_coverage.out ./hue/...
             go test -v -cover -coverprofile=/go/src/github.com/ninnemana/gohbridge/coverage.out .
