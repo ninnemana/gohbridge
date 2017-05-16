@@ -44,7 +44,7 @@ func TestGetConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bridges == nil {
+	if bridges == nil || len(bridges) == 0 {
 		t.Log("no bridges found")
 		return
 	}
