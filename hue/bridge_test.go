@@ -1,54 +1,102 @@
 package hue
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 var (
 	testUser = "6P1KtzwOPY0aiDHOVU4jx7Mn4oPNTqhi6v81hSbG"
 )
 
+const (
+	// BadJSON is a failure scenario for sending bad data
+	BadJSON = "bad_json"
+	// NotFound is a failure scenario for sending bad data
+	NotFound = "not_found"
+	// BadUsername is a failure scenario for sending bad data
+	BadUsername = "bad_userna"
+)
+
 type DiscoverHandler struct {
 	sync.Mutex
+
+	Address string
+	Fail    string
 }
 
 func (h *DiscoverHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var obj interface{}
+	switch h.Fail {
+	case NotFound:
+		w.WriteHeader(404)
+
+		return
+	case BadJSON:
+		fmt.Println(BadJSON)
+		obj = []BridgeState{}
+	default:
+		obj = []Bridge{
+			Bridge{
+				ID:   uuid.New().String(),
+				User: "discover",
+				BridgeNetwork: BridgeNetwork{
+					InternalIP: h.Address,
+				},
+			},
+		}
+	}
+	js, err := json.Marshal(obj)
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte(err.Error()))
+
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	w.Write(js)
+
 }
 
 func TestDiscover(t *testing.T) {
 
-	urlBackup := portalURL
 	portalURL = "asl;dfj"
 	_, err := Discover()
 	if err == nil {
 		t.Fatal("error should not be nil")
 	}
-	portalURL = urlBackup
 
-	handler := &DiscoverHandler{}
+	handler := &DiscoverHandler{
+		Fail: NotFound,
+	}
 	server := httptest.NewServer(handler)
 	defer server.Close()
-
-	urlBackup = portalURL
 	portalURL = server.URL
+
 	_, err = Discover()
 	if err == nil {
 		t.Fatal("error should not be nil")
+		t.FailNow()
 	}
-	portalURL = urlBackup
 
-	urlBackup = portalURL
 	portalURL = "http://www.ninneman.org"
 	_, err = Discover()
 	if err == nil {
 		t.Fatal("error should not be nil")
 	}
-	portalURL = urlBackup
 
+	handler.Fail = ""
+	server = httptest.NewServer(handler)
+	defer server.Close()
+	portalURL = server.URL
 	_, err = Discover()
 	if err != nil {
 		t.Fatal(err)
@@ -56,6 +104,11 @@ func TestDiscover(t *testing.T) {
 }
 
 func TestGetState(t *testing.T) {
+
+	handler := &DiscoverHandler{}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	portalURL = server.URL
 
 	ll, err := Discover()
 	if err != nil {

@@ -1,7 +1,0 @@
-{
-    "dependencies": {
-        "github.com/pressly/chi": {
-            "branch": "master"
-        }
-    }
-}

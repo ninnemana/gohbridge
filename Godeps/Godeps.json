@@ -1,27 +1,40 @@
 {
 	"ImportPath": "github.com/ninnemana/gohbridge",
-	"GoVersion": "go1.7",
-	"GodepVersion": "v75",
+	"GoVersion": "devel-d728be70f4",
+	"GodepVersion": "v79",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/google/uuid",
+			"Comment": "0.2-3-g6a5e285",
+			"Rev": "6a5e28554805e78ea6141142aba763936c4761c0"
+		},
+		{
 			"ImportPath": "github.com/pkg/errors",
-			"Comment": "v0.8.0-2-g248dadf",
-			"Rev": "248dadf4e9068a0b3e79f02ed0a610d935de5302"
+			"Comment": "v0.8.0-4-gff09b13",
+			"Rev": "ff09b135c25aae272398c51a07235b90a75aa4f0"
 		},
 		{
 			"ImportPath": "github.com/pressly/chi",
-			"Comment": "v2.0.0-2-g73deb7e",
-			"Rev": "73deb7ecc23095c0de39ba4de4f2a30e2ba829c6"
+			"Comment": "v2.1.0-3-ga57b1fb",
+			"Rev": "a57b1fbe2989382bdef31d3793d4a50a0e4a1d7c"
 		},
 		{
 			"ImportPath": "github.com/pressly/chi/docgen",
-			"Comment": "v2.0.0-2-g73deb7e",
-			"Rev": "73deb7ecc23095c0de39ba4de4f2a30e2ba829c6"
+			"Comment": "v2.1.0-3-ga57b1fb",
+			"Rev": "a57b1fbe2989382bdef31d3793d4a50a0e4a1d7c"
 		},
 		{
 			"ImportPath": "github.com/pressly/chi/middleware",
-			"Comment": "v2.0.0-2-g73deb7e",
-			"Rev": "73deb7ecc23095c0de39ba4de4f2a30e2ba829c6"
+			"Comment": "v2.1.0-3-ga57b1fb",
+			"Rev": "a57b1fbe2989382bdef31d3793d4a50a0e4a1d7c"
+		},
+		{
+			"ImportPath": "github.com/pressly/chi/render",
+			"Comment": "v2.1.0-3-ga57b1fb",
+			"Rev": "a57b1fbe2989382bdef31d3793d4a50a0e4a1d7c"
 		}
 	]
 }

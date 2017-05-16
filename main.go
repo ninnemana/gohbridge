@@ -5,6 +5,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/ninnemana/gohbridge/api"
@@ -43,6 +44,7 @@ func main() {
 		return
 	}
 
+	log.Println("Starting server...")
 	http.ListenAndServe(":8080", r)
 }
 
