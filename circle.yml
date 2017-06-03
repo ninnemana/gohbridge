@@ -1,43 +1,61 @@
-machine:
-  services:
-    - docker
-  environment:
-    GODIST: "go1.7.linux-amd64.tar.gz"
-    GOPATH: /home/ubuntu/.go_workspace
-    IMPORT_PATH: "github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
-  post:
-    - mkdir -p download
-    - test -e download/$GODIST || curl -o download/$GODIST https://storage.googleapis.com/golang/$GODIST
-    - sudo rm -rf /usr/local/go
-    - sudo tar -C /usr/local -xzf download/$GODIST
+version: 2
 
-general:
-  build_dir: ../.go_workspace/src/$IMPORT_PATH
+jobs:
+  build:
+    docker:
+      - image: golang:1.8.0
 
-checkout:
-  post:
-    - mkdir -p "$GOPATH/src/$IMPORT_PATH"
-    - rsync -azC --delete $HOME/$CIRCLE_PROJECT_REPONAME/ $GOPATH/src/$IMPORT_PATH/
+    working_directory: /go/src/github.com/ninnemana/gohbridge
 
-dependencies:
-  pre:
-    - go get github.com/tools/godep
+    steps:
+      - checkout
 
-  override:
-    - godep restore
-    - CGO_ENABLED=0 go build -a -installsuffix nocgo .
-    - docker login -u $DOCKER_USERNAME -p $DOCKER_PWD -e "$DOCKER_EMAIL" quay.io
-    - docker build -t quay.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:${CIRCLE_SHA1:0:7} .
+      - setup_remote_docker
 
-test:
-  pre:
-    - go vet ./...
+      - run:
+          name: Get dependencies
+          command: |
+            go get -u github.com/golang/dep/...
+            go get github.com/mattn/goveralls
+      - run:
+          name: Ensure dependencies
+          command: |
+            dep ensure
+      - run:
+          name: GoVet
+          command: |
+            go vet ./...
+      - run:
+          name: GoTest
+          command: |
+            touch api_coverage.out hue_coverage.out coverage.out
+            go test -v -cover -coverprofile=/go/src/github.com/ninnemana/gohbridge/api_coverage.out ./api/...
+            go test -v -cover -coverprofile=/go/src/github.com/ninnemana/gohbridge/hue_coverage.out ./hue/...
+            go test -v -cover -coverprofile=/go/src/github.com/ninnemana/gohbridge/coverage.out .
+      - run:
+          name: Coveralls
+          command: |
+            /go/bin/goveralls -coverprofile=/go/src/github.com/ninnemana/gohbridge/api_coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+            /go/bin/goveralls -coverprofile=/go/src/github.com/ninnemana/gohbridge/hue_coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+            /go/bin/goveralls -coverprofile=/go/src/github.com/ninnemana/gohbridge/coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+      - run:
+          name: Build
+          command: |
+            go build -o gohbridge .
 
-  override:
-    - godep go test ./...
+      - run:
+          name: Install Docker client
+          command: |
+            set -x
+            VER="17.03.0-ce"
+            curl -L -o /tmp/docker-$VER.tgz https://get.docker.com/builds/Linux/x86_64/docker-$VER.tgz
+            tar -xz -C /tmp -f /tmp/docker-$VER.tgz
+            mv /tmp/docker/* /usr/bin
 
-deployment:
-  quayio:
-    branch: master
-    commands:
-      - docker push quay.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:${CIRCLE_SHA1:0:7}
+      - run:
+          name: Deploy
+          command: |
+            TAG=0.1.$CIRCLE_BUILD_NUM
+            docker build -t quay.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:$TAG .
+            docker login -u $DOCKER_USER -p $DOCKER_PASS quay.io
+            docker push quay.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:$TAG
