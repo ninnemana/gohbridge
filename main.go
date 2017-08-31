@@ -7,11 +7,16 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/ninnemana/gohbridge/api"
 	"github.com/pressly/chi"
 	"github.com/pressly/chi/docgen"
 	"github.com/pressly/chi/middleware"
+)
+
+var (
+	upTime = time.Time{}
 )
 
 var routes = flag.Bool("routes", false, "Generate router documentation")
@@ -33,7 +38,7 @@ func main() {
 	})
 
 	r.Get("/status", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("up"))
+		w.Write([]byte(fmt.Sprintf("up for %f seconds", time.Since(upTime).Seconds())))
 	})
 
 	if *routes {
@@ -45,6 +50,7 @@ func main() {
 	}
 
 	log.Println("Starting server...")
+	upTime = time.Now()
 	http.ListenAndServe(":8080", r)
 }
 
