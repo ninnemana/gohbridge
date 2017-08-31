@@ -1,5 +1,5 @@
-# <img alt="chi" src="https://cdn.rawgit.com/pressly/chi/master/_examples/chi.svg" width="220" />
-
+<img alt="chi" src="https://cdn.rawgit.com/pressly/chi/master/_examples/chi.svg" width="220" />
+===
 
 [![GoDoc Widget]][GoDoc] [![Travis Widget]][Travis]
 
@@ -29,7 +29,7 @@ included some useful/optional subpackages: `middleware`, `render` and `docgen`. 
 * **100% compatible with net/http** - use any http or middleware pkg in the ecosystem that is also compat with `net/http`
 * **Designed for modular/composable APIs** - middlewares, inline middlewares, route groups and subrouter mounting
 * **Context control** - built on new `context` package, providing value chaining, cancelations and timeouts
-* **Robust** - in production at Pressly, CloudFlare, Heroku, 99Designs, and many others (see [discussion](https://github.com/pressly/chi/issues/91))
+* **Robust** - tested / used in production at Pressly.com, and many others
 * **Doc generation** - `docgen` auto-generates routing documentation from your source to JSON or Markdown
 * **No external dependencies** - plain ol' Go 1.7+ stdlib + net/http
 
@@ -89,6 +89,10 @@ func main() {
   r.Use(middleware.RealIP)
   r.Use(middleware.Logger)
   r.Use(middleware.Recoverer)
+
+  // When a client closes their connection midway through a request, the
+  // http.CloseNotifier will cancel the request context (ctx).
+  r.Use(middleware.CloseNotify)
 
   // Set a timeout value on the request context (ctx), that will signal
   // through ctx.Done() that the request has timed out and further
@@ -228,9 +232,7 @@ type Routes interface {
 ```
 
 Each routing method accepts a URL `pattern` and chain of `handlers`. The URL pattern
-supports named params (ie. `/users/:userID`) and wildcards (ie. `/admin/*`). URL parameters
-can be fetched at runtime by calling `chi.URLParam(r, "userID")` for named parameters
-and `chi.URLParam(r, "*")` for a wildcard parameter.
+supports named params (ie. `/users/:userID`) and wildcards (ie. `/admin/*`).
 
 
 ### Middleware handlers
