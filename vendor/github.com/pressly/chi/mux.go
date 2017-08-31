@@ -28,7 +28,6 @@ type Mux struct {
 	// Controls the behaviour of middleware chain generation when a mux
 	// is registered as an inline group inside another mux.
 	inline bool
-	parent *Mux
 
 	// The computed mux handler made of the chained middleware stack and
 	// the tree router
@@ -163,19 +162,11 @@ func (mx *Mux) Trace(pattern string, handlerFn http.HandlerFunc) {
 // NotFound sets a custom http.HandlerFunc for routing paths that could
 // not be found. The default 404 handler is `http.NotFound`.
 func (mx *Mux) NotFound(handlerFn http.HandlerFunc) {
-	// Build NotFound handler chain
-	m := mx
-	hFn := handlerFn
-	if mx.inline && mx.parent != nil {
-		m = mx.parent
-		hFn = Chain(mx.middlewares...).HandlerFunc(hFn).ServeHTTP
-	}
+	mx.notFoundHandler = handlerFn
 
-	// Update the notFoundHandler from this point forward
-	m.notFoundHandler = hFn
-	m.updateSubRoutes(func(subMux *Mux) {
+	mx.updateSubRoutes(func(subMux *Mux) {
 		if subMux.notFoundHandler == nil {
-			subMux.NotFound(hFn)
+			subMux.NotFound(handlerFn)
 		}
 	})
 }
@@ -183,19 +174,11 @@ func (mx *Mux) NotFound(handlerFn http.HandlerFunc) {
 // MethodNotAllowed sets a custom http.HandlerFunc for routing paths where the
 // method is unresolved. The default handler returns a 405 with an empty body.
 func (mx *Mux) MethodNotAllowed(handlerFn http.HandlerFunc) {
-	// Build MethodNotAllowed handler chain
-	m := mx
-	hFn := handlerFn
-	if mx.inline && mx.parent != nil {
-		m = mx.parent
-		hFn = Chain(mx.middlewares...).HandlerFunc(hFn).ServeHTTP
-	}
+	mx.methodNotAllowedHandler = handlerFn
 
-	// Update the methodNotAllowedHandler from this point forward
-	m.methodNotAllowedHandler = hFn
-	m.updateSubRoutes(func(subMux *Mux) {
+	mx.updateSubRoutes(func(subMux *Mux) {
 		if subMux.methodNotAllowedHandler == nil {
-			subMux.MethodNotAllowed(hFn)
+			subMux.MethodNotAllowed(handlerFn)
 		}
 	})
 }
@@ -216,7 +199,7 @@ func (mx *Mux) With(middlewares ...func(http.Handler) http.Handler) Router {
 	}
 	mws = append(mws, middlewares...)
 
-	im := &Mux{inline: true, parent: mx, tree: mx.tree, middlewares: mws}
+	im := &Mux{inline: true, tree: mx.tree, middlewares: mws}
 	return im
 }
 

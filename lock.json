@@ -1,0 +1,32 @@
+{
+    "memo": "a7c2d80614a335e52e1d0ddbad62a92a20e272219131383fa0734f77fdac30e5",
+    "projects": [
+        {
+            "name": "github.com/google/uuid",
+            "version": "0.2",
+            "revision": "064e2069ce9c359c118179501254f67d7d37ba24",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/pkg/errors",
+            "version": "v0.8.0",
+            "revision": "645ef00459ed84a119197bfb8d8205042c6df63d",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/pressly/chi",
+            "branch": "master",
+            "revision": "822e7b85e22b3f7a573782c3674edf8e732fb427",
+            "packages": [
+                ".",
+                "docgen",
+                "middleware",
+                "render"
+            ]
+        }
+    ]
+}
