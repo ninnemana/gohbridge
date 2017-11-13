@@ -10,14 +10,22 @@ service Hue {
     rpc SetLight(stream Light) returns (stream Light) {}
  }
 
- message Bridge {
+message BridgeNetwork {
+    string InternalIP = 1;
+}
 
+ message Bridge {
+    BridgeNetwork network = 1;
+    string id = 2;
+    string user = 3;
  }
 
  message DiscoverParams {}
 
  message BridgeState {
-
+    map<string, Light> lights = 1;
+    map<string, Group> groups = 2;
+    Config cfg = 3;
  }
 
  message Light {
@@ -31,3 +39,11 @@ service Hue {
  message GetLightParams {
 
  }
+
+ message Group {
+
+ }
+
+ message Config {
+
+}
