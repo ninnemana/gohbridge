@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package light;
+
+service Service {
+    rpc All(ListParams) returns (stream Light) {}
+    rpc New(NewParams) returns (Scan) {}
+    rpc Search(SearchParams) returns (SearchResult) {}
+    rpc Get(GetParams) returns (Light) {}
+}
+
+message GetParams {
+    string user = 1;
+    int32 ID = 2;
+}
+message ListParams {
+    string user = 1;
+}
+
+message NewParams {
+    string user = 1;
+}
+
+message SearchParams {
+    string user = 1;
+}
+
+message Scan {
+    string lastscan = 1;
+}
+
+message SearchResult {
+    map<string, string> success = 1;
+}
+
+message State {
+    bool on = 1;
+    double bri = 2;
+    string alert = 3;
+    string mode = 4;
+    bool reachable = 5;
+}
+
+message SoftwareUpdate {
+    string state = 1;
+    string lastinstall = 2;
+}
+
+message Streaming {
+    bool renderer = 1;
+    bool proxy = 2;
+}
+
+message Capabilities {
+    Streaming streaming = 1;
+}
+
+message Light {
+    State state = 1;
+    SoftwareUpdate swupdate = 2;
+    string type = 3;
+    string name = 4;
+    string modelid = 5;
+    string manufacturername = 6;
+    Capabilities capabilities = 7;
+    string uniqueid = 8;
+    string swversion = 9;
+    string swconfigid = 10;
+    string productid = 11;
+}
