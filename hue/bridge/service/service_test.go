@@ -1,11 +1,13 @@
-package hue
+package service
 
 import (
 	"log"
 	"net"
+	"os"
 	"testing"
 
 	"cloud.google.com/go/trace"
+	"github.com/ninnemana/gohbridge/hue/bridge"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -17,7 +19,7 @@ const (
 )
 
 var (
-	c HueClient
+	c bridge.ServiceClient
 )
 
 func TestMain(m *testing.M) {
@@ -35,7 +37,7 @@ func TestMain(m *testing.M) {
 
 	s := grpc.NewServer(grpc.UnaryInterceptor(tc.GRPCServerInterceptor()))
 
-	RegisterHueServer(s, &Service{})
+	bridge.RegisterServiceServer(s, &Service{})
 	reflection.Register(s)
 
 	go func() {
@@ -51,13 +53,13 @@ func TestMain(m *testing.M) {
 	}
 	defer conn.Close()
 
-	c = NewHueClient(conn)
+	c = bridge.NewServiceClient(conn)
 
 	m.Run()
 }
 
 func TestDiscover(t *testing.T) {
-	client, err := c.Discover(context.Background(), &DiscoverParams{})
+	client, err := c.Discover(context.Background(), &bridge.DiscoverParams{})
 	if err != nil {
 		t.Error(err)
 		return
@@ -75,7 +77,9 @@ func TestDiscover(t *testing.T) {
 }
 
 func TestGetBridgeState(t *testing.T) {
-	state, err := c.GetBridgeState(context.Background(), &Bridge{})
+	state, err := c.GetBridgeState(context.Background(), &bridge.ConfigParams{
+		User: os.Getenv("HUE_USER"),
+	})
 	if err != nil {
 		t.Error(err)
 		return

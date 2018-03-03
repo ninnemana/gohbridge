@@ -1,16 +1,21 @@
 syntax = "proto3";
 
-package hue;
+package bridge;
 
-service Hue {
+service Service {
     rpc Discover(DiscoverParams) returns (stream Bridge) {}
-    rpc GetBridgeState(Bridge) returns (BridgeState) {}
+    rpc GetBridgeState(ConfigParams) returns (BridgeState) {}
+    rpc GetConfig(ConfigParams) returns (BridgeConfig) {}
     // rpc ListLights(ListLightParams) returns (stream Light) {}
     // rpc GetLight(GetLightParams) returns (Light) {}
     // rpc SetLight(stream Light) returns (stream Light) {}
 }
 
 message DiscoverParams {}
+
+message ConfigParams {
+    string user = 1;
+}
 
 message Bridge {
     string id = 1;
