@@ -13,6 +13,7 @@ message GetParams {
     string user = 1;
     int32 ID = 2;
 }
+
 message ListParams {
     string user = 1;
 }
@@ -23,6 +24,19 @@ message NewParams {
 
 message SearchParams {
     string user = 1;
+}
+
+message SetOperation {
+    bool on = 1;
+    int32 bri = 2;
+    int32 hue = 3;
+    int32 sat = 4;
+    map<float32, float32> xy = 5;
+    int32 ct = 6;
+    string alert = 7;
+    string effect = 8;
+    string colormode = 9;
+    bool reachable = 10;
 }
 
 message Scan {
