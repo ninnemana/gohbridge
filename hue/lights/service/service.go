@@ -3,14 +3,15 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 
 	"cloud.google.com/go/trace"
 	light "github.com/ninnemana/gohbridge/hue/lights"
+	"github.com/pkg/errors"
 )
 
 type Service struct{}
@@ -24,7 +25,7 @@ func (s *Service) All(params *light.ListParams, server light.Service_AllServer) 
 		Timeout: time.Second * 5,
 	}
 
-	path := fmt.Sprintf("http://192.168.86.133/api/%s/lights", params.User)
+	path := fmt.Sprintf("%s/api/%s/lights", params.GetHost(), params.GetUser())
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return err
@@ -49,7 +50,13 @@ func (s *Service) All(params *light.ListParams, server light.Service_AllServer) 
 		return err
 	}
 
-	for _, l := range lights {
+	for id, l := range lights {
+		id, err := strconv.Atoi(id)
+		if err != nil {
+			return err
+		}
+		l.ID = int32(id)
+
 		if err = server.Send(&l); err != nil {
 			return err
 		}
@@ -67,7 +74,7 @@ func (s *Service) New(ctx context.Context, params *light.NewParams) (*light.Scan
 		Timeout: time.Second * 5,
 	}
 
-	path := fmt.Sprintf("http://192.168.86.133/api/%s/lights/new", params.User)
+	path := fmt.Sprintf("%s/api/%s/lights/new", params.GetHost(), params.GetUser())
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
@@ -104,7 +111,7 @@ func (s *Service) Search(ctx context.Context, params *light.SearchParams) (*ligh
 		Timeout: time.Second * 5,
 	}
 
-	path := fmt.Sprintf("http://192.168.86.133/api/%s/lights", params.User)
+	path := fmt.Sprintf("%s/api/%s/lights", params.GetHost(), params.GetUser())
 	req, err := http.NewRequest(http.MethodPost, path, nil)
 	if err != nil {
 		return nil, err
@@ -141,7 +148,7 @@ func (s *Service) Get(ctx context.Context, params *light.GetParams) (*light.Ligh
 		Timeout: time.Second * 5,
 	}
 
-	path := fmt.Sprintf("http://192.168.86.133/api/%s/lights/%d", params.User, params.ID)
+	path := fmt.Sprintf("%s/api/%s/lights/%d", params.GetHost(), params.GetUser(), params.GetID())
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
@@ -160,10 +167,14 @@ func (s *Service) Get(ctx context.Context, params *light.GetParams) (*light.Ligh
 		return nil, errors.New(string(data))
 	}
 
-	var l *light.Light
-	err = json.NewDecoder(resp.Body).Decode(l)
+	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
+	}
+
+	var l *light.Light
+	if err := json.Unmarshal(data, &l); err != nil {
+		return nil, errors.Errorf("failed to encode '%s' to Light: %v", data, err)
 	}
 
 	return l, nil

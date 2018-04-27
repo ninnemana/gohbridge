@@ -11,19 +11,23 @@ service Service {
 
 message GetParams {
     string user = 1;
-    int32 ID = 2;
+    string host = 2;
+    int32 ID = 3;
 }
 
 message ListParams {
     string user = 1;
+    string host = 2;
 }
 
 message NewParams {
     string user = 1;
+    string host = 2;
 }
 
 message SearchParams {
     string user = 1;
+    string host = 2;
 }
 
 message SetOperation {
@@ -31,7 +35,7 @@ message SetOperation {
     int32 bri = 2;
     int32 hue = 3;
     int32 sat = 4;
-    map<float32, float32> xy = 5;
+    map<string, float> xy = 5;
     int32 ct = 6;
     string alert = 7;
     string effect = 8;
@@ -81,4 +85,5 @@ message Light {
     string swversion = 9;
     string swconfigid = 10;
     string productid = 11;
+    int32 ID = 12;
 }

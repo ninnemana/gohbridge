@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -8,6 +9,8 @@ import (
 	"testing"
 
 	"cloud.google.com/go/trace"
+	"github.com/ninnemana/gohbridge/hue/bridge"
+	bridgeService "github.com/ninnemana/gohbridge/hue/bridge/service"
 	light "github.com/ninnemana/gohbridge/hue/lights"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -16,16 +19,17 @@ import (
 
 const (
 	// port    = "50051"
-	address = "localhost:50051"
+	address = "localhost:50052"
 )
 
 var (
-	c light.ServiceClient
+	c    light.ServiceClient
+	host string
 )
 
 func TestMain(m *testing.M) {
 
-	lis, err := net.Listen("tcp", ":50051")
+	lis, err := net.Listen("tcp", ":50052")
 	if err != nil {
 		log.Fatalf("failed to listen on: %s", address)
 	}
@@ -39,6 +43,7 @@ func TestMain(m *testing.M) {
 	s := grpc.NewServer(grpc.UnaryInterceptor(tc.GRPCServerInterceptor()))
 
 	light.RegisterServiceServer(s, &Service{})
+	bridge.RegisterServiceServer(s, &bridgeService.Service{})
 	reflection.Register(s)
 
 	go func() {
@@ -56,12 +61,31 @@ func TestMain(m *testing.M) {
 
 	c = light.NewServiceClient(conn)
 
+	client, err := bridge.NewServiceClient(conn).Discover(context.Background(), &bridge.DiscoverParams{})
+	if err != nil {
+		log.Fatalf("failed to create bridge client: %v", err)
+		return
+	}
+
+	var br *bridge.Bridge
+	for br == nil {
+		br, err = client.Recv()
+		if err != nil {
+			log.Fatalf("failed to receive bridge: %v", err)
+			return
+		}
+	}
+
+	host = fmt.Sprintf("http://%s", br.GetInternalIPAddress())
+
 	m.Run()
 }
 
 func TestAll(t *testing.T) {
+
 	client, err := c.All(context.Background(), &light.ListParams{
 		User: os.Getenv("HUE_USER"),
+		Host: host,
 	})
 	if err != nil {
 		t.Error(err)
@@ -69,7 +93,7 @@ func TestAll(t *testing.T) {
 	}
 
 	for {
-		msg, err := client.Recv()
+		_, err = client.Recv()
 		switch {
 		case err == nil:
 		case err == io.EOF:
@@ -78,10 +102,46 @@ func TestAll(t *testing.T) {
 			t.Error(err)
 			return
 		}
-
-		t.Log(msg)
-
 	}
+}
+
+func TestGet(t *testing.T) {
+	ctx := context.Background()
+	result, err := c.All(ctx, &light.ListParams{
+		User: os.Getenv("HUE_USER"),
+		Host: host,
+	})
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	var l *light.Light
+	for l == nil {
+		l, err = result.Recv()
+		switch {
+		case err == nil:
+			break
+		case err == io.EOF:
+			t.Fatal("no lights available")
+			return
+		default:
+			t.Error(err)
+			return
+		}
+	}
+
+	light, err := c.Get(context.Background(), &light.GetParams{
+		User: os.Getenv("HUE_USER"),
+		Host: host,
+		ID:   l.GetID(),
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	fmt.Println(light)
 }
 
 // func TestGetBridgeState(t *testing.T) {
