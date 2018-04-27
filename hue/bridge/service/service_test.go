@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -77,12 +78,53 @@ func TestDiscover(t *testing.T) {
 }
 
 func TestGetBridgeState(t *testing.T) {
+	client, err := c.Discover(context.Background(), &bridge.DiscoverParams{})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	var br *bridge.Bridge
+	for br == nil {
+		br, err = client.Recv()
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
 	state, err := c.GetBridgeState(context.Background(), &bridge.ConfigParams{
 		User: os.Getenv("HUE_USER"),
+		Host: fmt.Sprintf("http://%s", br.GetInternalIPAddress()),
 	})
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	t.Log(state)
+}
+
+func TestGetConfig(t *testing.T) {
+	client, err := c.Discover(context.Background(), &bridge.DiscoverParams{})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	var br *bridge.Bridge
+	for br == nil {
+		br, err = client.Recv()
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	config, err := c.GetConfig(context.Background(), &bridge.ConfigParams{
+		User: os.Getenv("HUE_USER"),
+		Host: fmt.Sprintf("http://%s", br.GetInternalIPAddress()),
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	t.Log(config)
 }
