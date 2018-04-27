@@ -69,7 +69,7 @@ func (s Service) GetBridgeState(ctx context.Context, params *bridge.ConfigParams
 		Timeout: time.Second * 5,
 	}
 
-	path := fmt.Sprintf("http://192.168.86.133/api/%s", params.User)
+	path := fmt.Sprintf("%s/api/%s", params.GetHost(), params.GetUser())
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func (s Service) GetConfig(ctx context.Context, params *bridge.ConfigParams) (*b
 		Timeout: time.Second * 5,
 	}
 
-	path := fmt.Sprintf("http://192.168.86.133/api/%s/config", params.User)
+	path := fmt.Sprintf("%s/api/%s/config", params.GetHost(), params.GetUser())
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
