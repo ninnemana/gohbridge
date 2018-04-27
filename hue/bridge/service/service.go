@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	"cloud.google.com/go/trace"
@@ -26,7 +27,13 @@ func (s Service) Discover(params *bridge.DiscoverParams, serv bridge.Service_Dis
 		Timeout: time.Second * 5,
 	}
 
-	req, err := http.NewRequest(http.MethodGet, "https://www.meethue.com/api/nupnp", nil)
+	discoverEndpoint := os.Getenv(DiscoverAddr)
+
+	if discoverEndpoint == "" {
+		return errors.Errorf("missing required environment variable '%s'", DiscoverAddr)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, discoverEndpoint, nil)
 	if err != nil {
 		return err
 	}
@@ -91,6 +98,7 @@ func (s Service) GetBridgeState(ctx context.Context, params *bridge.ConfigParams
 	bs := bridge.BridgeState{}
 	err = json.NewDecoder(resp.Body).Decode(&bs)
 	if err != nil {
+
 		return nil, err
 	}
 

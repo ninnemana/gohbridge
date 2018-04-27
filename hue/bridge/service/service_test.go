@@ -25,6 +25,7 @@ var (
 
 func TestMain(m *testing.M) {
 
+	os.Setenv(DiscoverAddr, "http://www.meethue.com/api/nupnp")
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		log.Fatalf("failed to listen on: %s", address)
@@ -57,6 +58,8 @@ func TestMain(m *testing.M) {
 	c = bridge.NewServiceClient(conn)
 
 	m.Run()
+
+	os.Unsetenv(DiscoverAddr)
 }
 
 func TestDiscover(t *testing.T) {
@@ -72,7 +75,13 @@ func TestDiscover(t *testing.T) {
 			t.Error(err)
 		}
 
-		t.Log(msg)
+		if msg.GetId() == "" {
+			t.Error("should have returned an id")
+		}
+		if msg.GetInternalIPAddress() == "" {
+			t.Error("should have returned an internal IP address")
+		}
+
 		return
 	}
 }
