@@ -15,6 +15,7 @@ message DiscoverParams {}
 
 message ConfigParams {
     string user = 1;
+    string host = 2;
 }
 
 message Bridge {
