@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/trace"
@@ -13,10 +13,6 @@ import (
 	"github.com/ninnemana/gohbridge/hue/bridge"
 	"github.com/pkg/errors"
 	context "golang.org/x/net/context"
-)
-
-var (
-	DiscoverAddr = "DISCOVER_ADDR"
 )
 
 type Service struct {
@@ -32,32 +28,35 @@ func (s Service) Discover(params *bridge.DiscoverParams, serv bridge.Service_Dis
 		Timeout: time.Second * 5,
 	}
 
-	up := upnp.NewUPNP(upnp.SERVICE_GATEWAY_IPV4_V2)
-	Interface, err := upnp.GetInterfaceByName("wlp3s0")
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	// Get all devices compatible for the service name (timeout 1 second)
-	devices := up.GetAllCompatibleDevice(Interface, 1)
-	fmt.Println(devices)
-	if len(devices) == 0 {
-		return errors.Errorf("no devices found on network")
-	}
-
-	for _, d := range devices {
-		fmt.Println(d.FriendlyName)
-		fmt.Println(d.PresentationURL)
-
-		for _, serv := range d.GetAllService() {
-			fmt.Println(serv.ControlURL, serv.EventSubURL, serv.SCPDURL)
+	var discoverEndpoint string
+	switch strings.ToLower(params.GetMethod()) {
+	case "upnp":
+		up := upnp.NewUPNP(upnp.SERVICE_GATEWAY_IPV4_V2)
+		Interface, err := upnp.GetInterfaceByName("en0")
+		if err != nil {
+			fmt.Println(err)
+			return err
 		}
-	}
+		// Get all devices compatible for the service name (timeout 1 second)
+		devices := up.GetAllCompatibleDevice(Interface, 1)
+		fmt.Println(devices)
+		if len(devices) == 0 {
+			return errors.Errorf("no devices found on network")
+		}
 
-	discoverEndpoint := os.Getenv(DiscoverAddr)
+		for _, d := range devices {
+			fmt.Println(d.FriendlyName)
+			fmt.Println(d.PresentationURL)
 
-	if discoverEndpoint == "" {
-		return errors.Errorf("missing required environment variable '%s'", DiscoverAddr)
+			for _, serv := range d.GetAllService() {
+				fmt.Println(serv.ControlURL, serv.EventSubURL, serv.SCPDURL)
+			}
+		}
+
+	case "remote":
+		discoverEndpoint = "https://www.meethue.com/api/nupnp"
+	default:
+		return errors.Errorf("connection method '%s' was not valid", params.GetMethod())
 	}
 
 	req, err := http.NewRequest(http.MethodGet, discoverEndpoint, nil)

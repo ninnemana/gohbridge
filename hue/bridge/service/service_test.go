@@ -24,8 +24,6 @@ var (
 )
 
 func TestMain(m *testing.M) {
-
-	os.Setenv(DiscoverAddr, "http://www.meethue.com/api/nupnp")
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		log.Fatalf("failed to listen on: %s", address)
@@ -58,12 +56,12 @@ func TestMain(m *testing.M) {
 	c = bridge.NewServiceClient(conn)
 
 	m.Run()
-
-	os.Unsetenv(DiscoverAddr)
 }
 
 func TestDiscover(t *testing.T) {
-	client, err := c.Discover(context.Background(), &bridge.DiscoverParams{})
+	client, err := c.Discover(context.Background(), &bridge.DiscoverParams{
+		Method: "remote",
+	})
 	if err != nil {
 		t.Error(err)
 		return
@@ -87,7 +85,9 @@ func TestDiscover(t *testing.T) {
 }
 
 func TestGetBridgeState(t *testing.T) {
-	client, err := c.Discover(context.Background(), &bridge.DiscoverParams{})
+	client, err := c.Discover(context.Background(), &bridge.DiscoverParams{
+		Method: "remote",
+	})
 	if err != nil {
 		t.Error(err)
 		return
@@ -113,7 +113,9 @@ func TestGetBridgeState(t *testing.T) {
 }
 
 func TestGetConfig(t *testing.T) {
-	client, err := c.Discover(context.Background(), &bridge.DiscoverParams{})
+	client, err := c.Discover(context.Background(), &bridge.DiscoverParams{
+		Method: "remote",
+	})
 	if err != nil {
 		t.Error(err)
 		return

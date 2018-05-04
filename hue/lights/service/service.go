@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -178,4 +179,76 @@ func (s *Service) Get(ctx context.Context, params *light.GetParams) (*light.Ligh
 	}
 
 	return l, nil
+}
+
+func (s *Service) SetState(ctx context.Context, params *light.SetStateParams) (*light.Light, error) {
+	span := trace.FromContext(ctx)
+	child := span.NewChild("hue.lights.set.state")
+	defer child.Finish()
+
+	client := http.Client{
+		Timeout: time.Second * 5,
+	}
+
+	data, err := json.Marshal(params.GetUpdate())
+	if err != nil {
+		return nil, err
+	}
+
+	path := fmt.Sprintf("%s/api/%s/lights/%d/state", params.GetHost(), params.GetUser(), params.GetID())
+	req, err := http.NewRequest(http.MethodPut, path, bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != 200 {
+		data, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New(string(data))
+	}
+
+	data, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []interface{}
+	if err = json.Unmarshal(data, &res); err != nil {
+		return nil, err
+	}
+
+	for _, r := range res {
+		switch r.(type) {
+		case map[string]interface{}:
+			result := r.(map[string]interface{})
+			switch {
+			case result["error"] != nil:
+				switch result["error"].(type) {
+				case map[string]interface{}:
+					e := result["error"].(map[string]interface{})
+					switch e["description"].(type) {
+					case string:
+						return nil, errors.Errorf("failed to set state: %s", e["description"])
+					}
+				}
+
+				return nil, errors.Errorf("state update failed")
+			}
+		default:
+			return nil, errors.Errorf("failed to read state response")
+		}
+	}
+
+	return s.Get(ctx, &light.GetParams{
+		User: params.GetUser(),
+		Host: params.GetHost(),
+		ID:   params.GetID(),
+	})
 }

@@ -7,6 +7,7 @@ service Service {
     rpc New(NewParams) returns (Scan) {}
     rpc Search(SearchParams) returns (SearchResult) {}
     rpc Get(GetParams) returns (Light) {}
+    rpc SetState(SetStateParams) returns (Light) {}
 }
 
 message GetParams {
@@ -57,6 +58,17 @@ message State {
     string alert = 3;
     string mode = 4;
     bool reachable = 5;
+    double hue = 6;
+    double sat = 7;
+    repeated double xy = 8;
+    double ct = 9;
+    string effect = 10;
+    double transitiontime = 11;
+    double bri_inc = 12;
+    double sat_inc = 13;
+    double hue_inc = 14;
+    double ct_inc = 15;
+    repeated double xy_inc = 16;
 }
 
 message SoftwareUpdate {
@@ -86,4 +98,28 @@ message Light {
     string swconfigid = 10;
     string productid = 11;
     int32 ID = 12;
+}
+
+message LightState {
+    bool on = 1;
+    double bri = 2;
+    string alert = 3;
+    double hue = 4;
+    double sat = 5;
+    repeated double xy = 6;
+    double ct = 7;
+    string effect = 8;
+    double transitiontime = 9;
+    double bri_inc = 10;
+    double sat_inc = 11;
+    double hue_inc = 12;
+    double ct_inc = 13;
+    repeated double xy_inc = 14;
+}
+
+message SetStateParams {
+    LightState update = 1;
+    string host = 2;
+    string user = 3;
+    int32 ID = 4;
 }

@@ -61,7 +61,9 @@ func TestMain(m *testing.M) {
 
 	c = light.NewServiceClient(conn)
 
-	client, err := bridge.NewServiceClient(conn).Discover(context.Background(), &bridge.DiscoverParams{})
+	client, err := bridge.NewServiceClient(conn).Discover(context.Background(), &bridge.DiscoverParams{
+		Method: "remote",
+	})
 	if err != nil {
 		log.Fatalf("failed to create bridge client: %v", err)
 		return
@@ -142,6 +144,77 @@ func TestGet(t *testing.T) {
 	}
 
 	fmt.Println(light)
+}
+
+func TestSetState(t *testing.T) {
+	ctx := context.Background()
+	result, err := c.All(ctx, &light.ListParams{
+		User: os.Getenv("HUE_USER"),
+		Host: host,
+	})
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	var l *light.Light
+	for l == nil {
+		li, err := result.Recv()
+		switch {
+		case err == nil:
+			if li.GetName() == "Hue white lamp 1" {
+				l = li
+				break
+			}
+		case err == io.EOF:
+			t.Fatal("no lights available")
+			return
+		default:
+			t.Error(err)
+			return
+		}
+	}
+
+	lg, err := c.Get(context.Background(), &light.GetParams{
+		User: os.Getenv("HUE_USER"),
+		Host: host,
+		ID:   l.GetID(),
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	lg, err = c.SetState(context.Background(), &light.SetStateParams{
+		Update: &light.LightState{
+			On:             lg.State.On,
+			Bri:            60,
+			Alert:          lg.State.Alert,
+			Hue:            lg.State.Hue,
+			Sat:            lg.State.Sat,
+			Xy:             lg.State.Xy,
+			Ct:             lg.State.Ct,
+			Effect:         lg.State.Effect,
+			Transitiontime: lg.State.Transitiontime,
+			BriInc:         lg.State.BriInc,
+			SatInc:         lg.State.SatInc,
+			HueInc:         lg.State.HueInc,
+			CtInc:          lg.State.CtInc,
+			XyInc:          lg.State.XyInc,
+		},
+		User: os.Getenv("HUE_USER"),
+		Host: host,
+		ID:   l.GetID(),
+	})
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	if lg.GetState().GetBri() != 60 {
+		t.Fatalf("failed to update brightness to '60' responded with '%f'", lg.GetState().GetBri())
+		return
+	}
 }
 
 // func TestGetBridgeState(t *testing.T) {

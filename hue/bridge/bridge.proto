@@ -11,7 +11,9 @@ service Service {
     // rpc SetLight(stream Light) returns (stream Light) {}
 }
 
-message DiscoverParams {}
+message DiscoverParams {
+    string method = 1;
+}
 
 message ConfigParams {
     string user = 1;
