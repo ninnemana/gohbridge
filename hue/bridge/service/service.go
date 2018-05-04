@@ -9,9 +9,14 @@ import (
 	"time"
 
 	"cloud.google.com/go/trace"
+	upnp "github.com/micmonay/UPnP"
 	"github.com/ninnemana/gohbridge/hue/bridge"
 	"github.com/pkg/errors"
 	context "golang.org/x/net/context"
+)
+
+var (
+	DiscoverAddr = "DISCOVER_ADDR"
 )
 
 type Service struct {
@@ -25,6 +30,28 @@ func (s Service) Discover(params *bridge.DiscoverParams, serv bridge.Service_Dis
 
 	client := http.Client{
 		Timeout: time.Second * 5,
+	}
+
+	up := upnp.NewUPNP(upnp.SERVICE_GATEWAY_IPV4_V2)
+	Interface, err := upnp.GetInterfaceByName("wlp3s0")
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	// Get all devices compatible for the service name (timeout 1 second)
+	devices := up.GetAllCompatibleDevice(Interface, 1)
+	fmt.Println(devices)
+	if len(devices) == 0 {
+		return errors.Errorf("no devices found on network")
+	}
+
+	for _, d := range devices {
+		fmt.Println(d.FriendlyName)
+		fmt.Println(d.PresentationURL)
+
+		for _, serv := range d.GetAllService() {
+			fmt.Println(serv.ControlURL, serv.EventSubURL, serv.SCPDURL)
+		}
 	}
 
 	discoverEndpoint := os.Getenv(DiscoverAddr)
