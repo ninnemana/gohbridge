@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/trace"
 	"github.com/ninnemana/gohbridge/hue/bridge"
@@ -18,7 +19,6 @@ import (
 )
 
 const (
-	// port    = "50051"
 	address = "localhost:50052"
 )
 
@@ -95,9 +95,10 @@ func TestAll(t *testing.T) {
 	}
 
 	for {
-		_, err = client.Recv()
+		l, err := client.Recv()
 		switch {
 		case err == nil:
+			fmt.Println(l.GetName())
 		case err == io.EOF:
 			return
 		default:
@@ -133,7 +134,7 @@ func TestGet(t *testing.T) {
 		}
 	}
 
-	light, err := c.Get(context.Background(), &light.GetParams{
+	_, err = c.Get(context.Background(), &light.GetParams{
 		User: os.Getenv("HUE_USER"),
 		Host: host,
 		ID:   l.GetID(),
@@ -142,8 +143,6 @@ func TestGet(t *testing.T) {
 		t.Error(err)
 		return
 	}
-
-	fmt.Println(light)
 }
 
 func TestSetState(t *testing.T) {
@@ -162,7 +161,7 @@ func TestSetState(t *testing.T) {
 		li, err := result.Recv()
 		switch {
 		case err == nil:
-			if li.GetName() == "Hue white lamp 1" {
+			if li.GetName() == "Desk Lamp" {
 				l = li
 				break
 			}
@@ -187,20 +186,8 @@ func TestSetState(t *testing.T) {
 
 	lg, err = c.SetState(context.Background(), &light.SetStateParams{
 		Update: &light.LightState{
-			On:             lg.State.On,
-			Bri:            60,
-			Alert:          lg.State.Alert,
-			Hue:            lg.State.Hue,
-			Sat:            lg.State.Sat,
-			Xy:             lg.State.Xy,
-			Ct:             lg.State.Ct,
-			Effect:         lg.State.Effect,
-			Transitiontime: lg.State.Transitiontime,
-			BriInc:         lg.State.BriInc,
-			SatInc:         lg.State.SatInc,
-			HueInc:         lg.State.HueInc,
-			CtInc:          lg.State.CtInc,
-			XyInc:          lg.State.XyInc,
+			On:  true,
+			Bri: 100.00,
 		},
 		User: os.Getenv("HUE_USER"),
 		Host: host,
@@ -211,19 +198,50 @@ func TestSetState(t *testing.T) {
 		return
 	}
 
-	if lg.GetState().GetBri() != 60 {
+	if lg.GetState().GetBri() != 100 {
 		t.Fatalf("failed to update brightness to '60' responded with '%f'", lg.GetState().GetBri())
 		return
 	}
 }
 
-// func TestGetBridgeState(t *testing.T) {
-// 	state, err := c.GetBridgeState(context.Background(), &bridge.ConfigParams{
-// 		User: os.Getenv("HUE_USER"),
-// 	})
-// 	if err != nil {
-// 		t.Error(err)
-// 		return
-// 	}
-// 	t.Log(state)
-// }
+func TestToggle(t *testing.T) {
+	ctx := context.Background()
+	res, err := c.All(ctx, &light.ListParams{
+		User: os.Getenv("HUE_USER"),
+		Host: host,
+	})
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	lights := []*light.Light{}
+	var done bool
+	for !done {
+		li, err := res.Recv()
+		switch {
+		case err == nil:
+			lights = append(lights, li)
+		case err == io.EOF:
+			done = true
+		default:
+			t.Fatalf("light receiver failed: %v", err)
+			return
+		}
+	}
+
+	for {
+		for _, l := range lights {
+			_, err = c.Toggle(ctx, &light.ToggleParams{
+				Host: host,
+				ID:   l.GetID(),
+				User: os.Getenv("HUE_USER"),
+			})
+			if err != nil {
+				t.Fatal(err)
+				return
+			}
+			time.Sleep(time.Second * 60)
+		}
+	}
+}
