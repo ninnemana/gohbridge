@@ -101,7 +101,7 @@ func TestGetBridgeState(t *testing.T) {
 		}
 	}
 
-	state, err := c.GetBridgeState(context.Background(), &bridge.ConfigParams{
+	_, err = c.GetBridgeState(context.Background(), &bridge.ConfigParams{
 		User: os.Getenv("HUE_USER"),
 		Host: fmt.Sprintf("http://%s", br.GetInternalIPAddress()),
 	})
@@ -109,7 +109,6 @@ func TestGetBridgeState(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	t.Log(state)
 }
 
 func TestGetConfig(t *testing.T) {
@@ -129,7 +128,7 @@ func TestGetConfig(t *testing.T) {
 		}
 	}
 
-	config, err := c.GetConfig(context.Background(), &bridge.ConfigParams{
+	_, err = c.GetConfig(context.Background(), &bridge.ConfigParams{
 		User: os.Getenv("HUE_USER"),
 		Host: fmt.Sprintf("http://%s", br.GetInternalIPAddress()),
 	})
@@ -137,5 +136,4 @@ func TestGetConfig(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	t.Log(config)
 }

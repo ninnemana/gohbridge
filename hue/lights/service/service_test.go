@@ -6,8 +6,8 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"testing"
-	"time"
 
 	"cloud.google.com/go/trace"
 	"github.com/ninnemana/gohbridge/hue/bridge"
@@ -95,10 +95,9 @@ func TestAll(t *testing.T) {
 	}
 
 	for {
-		l, err := client.Recv()
+		_, err = client.Recv()
 		switch {
 		case err == nil:
-			fmt.Println(l.GetName())
 		case err == io.EOF:
 			return
 		default:
@@ -206,6 +205,12 @@ func TestSetState(t *testing.T) {
 
 func TestToggle(t *testing.T) {
 	ctx := context.Background()
+
+	_, err := c.Toggle(ctx, &light.ToggleParams{})
+	if err == nil {
+		t.Error("expected error not to be nil with empty toggle params")
+	}
+
 	res, err := c.All(ctx, &light.ListParams{
 		User: os.Getenv("HUE_USER"),
 		Host: host,
@@ -215,33 +220,26 @@ func TestToggle(t *testing.T) {
 		return
 	}
 
-	lights := []*light.Light{}
-	var done bool
-	for !done {
+	var l *light.Light
+	for l == nil {
 		li, err := res.Recv()
-		switch {
-		case err == nil:
-			lights = append(lights, li)
-		case err == io.EOF:
-			done = true
-		default:
-			t.Fatalf("light receiver failed: %v", err)
+		if err != nil {
+			t.Error("failed to retrieve light")
 			return
+		}
+
+		if strings.Contains(li.GetName(), "Desk") {
+			l = li
 		}
 	}
 
-	for {
-		for _, l := range lights {
-			_, err = c.Toggle(ctx, &light.ToggleParams{
-				Host: host,
-				ID:   l.GetID(),
-				User: os.Getenv("HUE_USER"),
-			})
-			if err != nil {
-				t.Fatal(err)
-				return
-			}
-			time.Sleep(time.Second * 60)
-		}
+	_, err = c.Toggle(ctx, &light.ToggleParams{
+		Host: host,
+		ID:   l.GetID(),
+		User: os.Getenv("HUE_USER"),
+	})
+	if err != nil {
+		t.Fatal(err)
+		return
 	}
 }

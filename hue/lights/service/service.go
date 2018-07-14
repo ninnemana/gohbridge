@@ -287,8 +287,6 @@ func (s *Service) Toggle(ctx context.Context, params *light.ToggleParams) (*ligh
 	case !existing.GetState().GetOn():
 	}
 
-	fmt.Println("Already on: ", alreadyOn)
-
 	client := http.Client{
 		Timeout: time.Second * 5,
 	}
