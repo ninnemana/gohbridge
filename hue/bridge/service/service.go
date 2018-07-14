@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,16 +13,20 @@ import (
 	upnp "github.com/micmonay/UPnP"
 	"github.com/ninnemana/gohbridge/hue/bridge"
 	"github.com/pkg/errors"
-	context "golang.org/x/net/context"
+	"google.golang.org/grpc/grpclog"
 )
 
+// Service implements bridge.Interactor around the Hue
+// Rest API.
 type Service struct {
 	clients map[string]string
+	Log     grpclog.LoggerV2
+	Trace   *trace.Client
 }
 
+// Discover retrieves any available Hue Bridge(s) available to the server.
 func (s Service) Discover(params *bridge.DiscoverParams, serv bridge.Service_DiscoverServer) error {
-	span := trace.FromContext(serv.Context())
-	child := span.NewChild("hue.discover")
+	child := s.Trace.NewSpan("hue.discover")
 	defer child.Finish()
 
 	client := http.Client{
@@ -34,20 +39,16 @@ func (s Service) Discover(params *bridge.DiscoverParams, serv bridge.Service_Dis
 		up := upnp.NewUPNP(upnp.SERVICE_GATEWAY_IPV4_V2)
 		Interface, err := upnp.GetInterfaceByName("en0")
 		if err != nil {
-			fmt.Println(err)
 			return err
 		}
-		// Get all devices compatible for the service name (timeout 1 second)
+
+		// get all devices compatible for the service name (timeout 1 second)
 		devices := up.GetAllCompatibleDevice(Interface, 1)
-		fmt.Println(devices)
 		if len(devices) == 0 {
 			return errors.Errorf("no devices found on network")
 		}
 
 		for _, d := range devices {
-			fmt.Println(d.FriendlyName)
-			fmt.Println(d.PresentationURL)
-
 			for _, serv := range d.GetAllService() {
 				fmt.Println(serv.ControlURL, serv.EventSubURL, serv.SCPDURL)
 			}
@@ -93,6 +94,7 @@ func (s Service) Discover(params *bridge.DiscoverParams, serv bridge.Service_Dis
 	return nil
 }
 
+// GetBridgeState retrieves the current state of the configured Hue Bridge.
 func (s Service) GetBridgeState(ctx context.Context, params *bridge.ConfigParams) (*bridge.BridgeState, error) {
 	span := trace.FromContext(ctx)
 	child := span.NewChild("hue.bridge_state")
@@ -131,6 +133,7 @@ func (s Service) GetBridgeState(ctx context.Context, params *bridge.ConfigParams
 	return &bs, nil
 }
 
+// GetConfig retrieves the full configuration of the requested Hue Bridge.
 func (s Service) GetConfig(ctx context.Context, params *bridge.ConfigParams) (*bridge.BridgeConfig, error) {
 	span := trace.FromContext(ctx)
 	child := span.NewChild("hue.full_config")
