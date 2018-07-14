@@ -15,12 +15,12 @@ jobs:
       - run:
           name: Get dependencies
           command: |
-            go get -u golang.org/x/vgo
+            go get -u github.com/golang/dep/...
             go get github.com/mattn/goveralls
       - run:
           name: Ensure dependencies
           command: |
-            vgo get
+            dep ensure
       - run:
           name: GoVet
           command: |
