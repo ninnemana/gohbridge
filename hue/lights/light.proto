@@ -8,6 +8,7 @@ service Service {
     rpc Search(SearchParams) returns (SearchResult) {}
     rpc Get(GetParams) returns (Light) {}
     rpc SetState(SetStateParams) returns (Light) {}
+    rpc Toggle(ToggleParams) returns (Light) {}
 }
 
 message GetParams {
@@ -19,6 +20,12 @@ message GetParams {
 message ListParams {
     string user = 1;
     string host = 2;
+}
+
+message ToggleParams {
+    string user = 1;
+    string host = 2;
+    int32 ID = 3;
 }
 
 message NewParams {
@@ -104,17 +111,11 @@ message LightState {
     bool on = 1;
     double bri = 2;
     string alert = 3;
-    double hue = 4;
-    double sat = 5;
-    repeated double xy = 6;
-    double ct = 7;
-    string effect = 8;
-    double transitiontime = 9;
-    double bri_inc = 10;
-    double sat_inc = 11;
-    double hue_inc = 12;
-    double ct_inc = 13;
-    repeated double xy_inc = 14;
+    repeated double xy = 4;
+    string effect = 5;
+    double transitiontime = 6;
+    double bri_inc = 7;
+    repeated double xy_inc = 8;
 }
 
 message SetStateParams {
