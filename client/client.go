@@ -3,10 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"os"
+	"strings"
+	"time"
 
 	"cloud.google.com/go/trace"
-	bridgepb "github.com/ninnemana/gohbridge/hue/bridge/service"
+	"github.com/ninnemana/gohbridge/hue/bridge"
+	"github.com/ninnemana/gohbridge/hue/lights"
 	"google.golang.org/grpc"
 )
 
@@ -17,17 +22,96 @@ func main() {
 		log.Fatal(err)
 	}
 
-	conn, err := grpc.Dial(":50051", grpc.WithInsecure(), grpc.WithUnaryInterceptor(tc.GRPCClientInterceptor()))
+	conn, err := grpc.Dial(
+		":50051",
+		grpc.WithInsecure(),
+		grpc.WithUnaryInterceptor(tc.GRPCClientInterceptor()),
+	)
 	if err != nil {
 		log.Fatalf("did not connect RPC client: %v", err)
 		return
 	}
 	defer conn.Close()
 
-	c := bridgepb.NewHueClient(conn)
-	state, err := c.GetBridgeState(ctx, &bridgepb.Bridge{})
+	bridgeConn := bridge.NewServiceClient(conn)
+
+	brCall, err := bridgeConn.Discover(ctx, &bridge.DiscoverParams{
+		Method: "remote",
+	})
+	if err != nil {
+		log.Fatalf("failed to make gRPC discovery connection: %v", err)
+		return
+	}
+
+	ipChan := make(chan interface{})
+	go func() {
+		for {
+			br, err := brCall.Recv()
+			switch err {
+			case nil:
+				ipChan <- br.GetInternalIPAddress()
+			case io.EOF:
+			default:
+				ipChan <- err
+			}
+		}
+	}()
+
+	var ip string
+	select {
+	case result := <-ipChan:
+		switch result.(type) {
+		case error:
+			log.Fatalf("failed to make discovery call to RPC service: %v", err)
+		case string:
+			ip = result.(string)
+		}
+	case <-time.After(time.Second * 5):
+		log.Fatalf("timed out waiting for bridge discovery")
+	}
+
+	user := os.Getenv("HUE_USER")
+	host := fmt.Sprintf("http://%s", ip)
+
+	_, err = bridgeConn.GetBridgeState(ctx, &bridge.ConfigParams{
+		User: user,
+		Host: host,
+	})
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(state)
+
+	lightConn := light.NewServiceClient(conn)
+
+	lightCall, err := lightConn.All(ctx, &light.ListParams{
+		User: user,
+		Host: host,
+	})
+
+	var bedroom *light.Light
+	for {
+		l, err := lightCall.Recv()
+		switch err {
+		case nil:
+			l, err := lightConn.Get(ctx, &light.GetParams{
+				ID:   l.ID,
+				User: user,
+				Host: host,
+			})
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
+
+			if strings.TrimSpace(strings.ToLower(l.GetName())) == "bedroom lamp" {
+				bedroom = l
+			}
+		case io.EOF:
+			fmt.Println(bedroom.GetModelid())
+			return
+		default:
+			fmt.Println(err.Error())
+			return
+		}
+	}
 }
