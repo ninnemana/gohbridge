@@ -28,6 +28,7 @@ type Mux struct {
 	// Controls the behaviour of middleware chain generation when a mux
 	// is registered as an inline group inside another mux.
 	inline bool
+	parent *Mux
 
 	// The computed mux handler made of the chained middleware stack and
 	// the tree router
@@ -105,6 +106,22 @@ func (mx *Mux) HandleFunc(pattern string, handlerFn http.HandlerFunc) {
 	mx.handle(mALL, pattern, handlerFn)
 }
 
+// Method adds the route `pattern` that matches `method` http method to
+// execute the `handler` http.Handler.
+func (mx *Mux) Method(method, pattern string, handler http.Handler) {
+	m, ok := methodMap[strings.ToUpper(method)]
+	if !ok {
+		panic(fmt.Sprintf("chi: '%s' http method is not supported.", method))
+	}
+	mx.handle(m, pattern, handler)
+}
+
+// MethodFunc adds the route `pattern` that matches `method` http method to
+// execute the `handlerFn` http.HandlerFunc.
+func (mx *Mux) MethodFunc(method, pattern string, handlerFn http.HandlerFunc) {
+	mx.Method(method, pattern, handlerFn)
+}
+
 // Connect adds the route `pattern` that matches a CONNECT http method to
 // execute the `handlerFn` http.HandlerFunc.
 func (mx *Mux) Connect(pattern string, handlerFn http.HandlerFunc) {
@@ -162,11 +179,19 @@ func (mx *Mux) Trace(pattern string, handlerFn http.HandlerFunc) {
 // NotFound sets a custom http.HandlerFunc for routing paths that could
 // not be found. The default 404 handler is `http.NotFound`.
 func (mx *Mux) NotFound(handlerFn http.HandlerFunc) {
-	mx.notFoundHandler = handlerFn
+	// Build NotFound handler chain
+	m := mx
+	hFn := handlerFn
+	if mx.inline && mx.parent != nil {
+		m = mx.parent
+		hFn = Chain(mx.middlewares...).HandlerFunc(hFn).ServeHTTP
+	}
 
-	mx.updateSubRoutes(func(subMux *Mux) {
+	// Update the notFoundHandler from this point forward
+	m.notFoundHandler = hFn
+	m.updateSubRoutes(func(subMux *Mux) {
 		if subMux.notFoundHandler == nil {
-			subMux.NotFound(handlerFn)
+			subMux.NotFound(hFn)
 		}
 	})
 }
@@ -174,11 +199,19 @@ func (mx *Mux) NotFound(handlerFn http.HandlerFunc) {
 // MethodNotAllowed sets a custom http.HandlerFunc for routing paths where the
 // method is unresolved. The default handler returns a 405 with an empty body.
 func (mx *Mux) MethodNotAllowed(handlerFn http.HandlerFunc) {
-	mx.methodNotAllowedHandler = handlerFn
+	// Build MethodNotAllowed handler chain
+	m := mx
+	hFn := handlerFn
+	if mx.inline && mx.parent != nil {
+		m = mx.parent
+		hFn = Chain(mx.middlewares...).HandlerFunc(hFn).ServeHTTP
+	}
 
-	mx.updateSubRoutes(func(subMux *Mux) {
+	// Update the methodNotAllowedHandler from this point forward
+	m.methodNotAllowedHandler = hFn
+	m.updateSubRoutes(func(subMux *Mux) {
 		if subMux.methodNotAllowedHandler == nil {
-			subMux.MethodNotAllowed(handlerFn)
+			subMux.MethodNotAllowed(hFn)
 		}
 	})
 }
@@ -199,7 +232,7 @@ func (mx *Mux) With(middlewares ...func(http.Handler) http.Handler) Router {
 	}
 	mws = append(mws, middlewares...)
 
-	im := &Mux{inline: true, tree: mx.tree, middlewares: mws}
+	im := &Mux{inline: true, parent: mx, tree: mx.tree, middlewares: mws}
 	return im
 }
 
@@ -236,7 +269,7 @@ func (mx *Mux) Route(pattern string, fn func(r Router)) Router {
 func (mx *Mux) Mount(pattern string, handler http.Handler) {
 	// Provide runtime safety for ensuring a pattern isn't mounted on an existing
 	// routing pattern.
-	if mx.tree.findPattern(pattern+"*") != nil || mx.tree.findPattern(pattern+"/*") != nil {
+	if mx.tree.matchPattern(pattern+"*") || mx.tree.matchPattern(pattern+"/*") {
 		panic(fmt.Sprintf("chi: attempting to Mount() a handler on an existing path, '%s'", pattern))
 	}
 
@@ -252,7 +285,15 @@ func (mx *Mux) Mount(pattern string, handler http.Handler) {
 	// Wrap the sub-router in a handlerFunc to scope the request path for routing.
 	subHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rctx := RouteContext(r.Context())
-		rctx.RoutePath = "/" + rctx.URLParams.Del("*")
+
+		nsx := len(rctx.URLParams) - 1          // index of current stacked router
+		nx := len(rctx.URLParams[nsx].keys) - 1 // index of last param in list
+
+		rctx.RoutePath = "/"
+		if nx >= 0 && rctx.URLParams[nsx].keys[nx] == "*" {
+			rctx.RoutePath += rctx.URLParams[nsx].values[nx]
+		}
+
 		handler.ServeHTTP(w, r)
 	})
 
@@ -280,26 +321,6 @@ func (mx *Mux) Middlewares() Middlewares {
 
 func (mx *Mux) Routes() []Route {
 	return mx.tree.routes()
-}
-
-// FileServer conveniently sets up a http.FileServer handler to serve
-// static files from a http.FileSystem.
-func (mx *Mux) FileServer(path string, root http.FileSystem) {
-	if strings.ContainsAny(path, ":*") {
-		panic("chi: FileServer does not permit URL parameters.")
-	}
-
-	fs := http.StripPrefix(path, http.FileServer(root))
-
-	if path != "/" && path[len(path)-1] != '/' {
-		mx.Get(path, http.RedirectHandler(path+"/", 301).ServeHTTP)
-		path += "/"
-	}
-	path += "*"
-
-	mx.Get(path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fs.ServeHTTP(w, r)
-	}))
 }
 
 // NotFoundHandler returns the default Mux 404 responder whenever a route

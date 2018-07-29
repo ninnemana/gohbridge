@@ -1,0 +1,123 @@
+syntax = "proto3";
+
+package bridge;
+
+service Service {
+    rpc Discover(DiscoverParams) returns (stream Bridge) {}
+    rpc GetBridgeState(ConfigParams) returns (BridgeState) {}
+    rpc GetConfig(ConfigParams) returns (BridgeConfig) {}
+    // rpc ListLights(ListLightParams) returns (stream Light) {}
+    // rpc GetLight(GetLightParams) returns (Light) {}
+    // rpc SetLight(stream Light) returns (stream Light) {}
+}
+
+message DiscoverParams {
+    string method = 1;
+}
+
+message ConfigParams {
+    string user = 1;
+    string host = 2;
+}
+
+message Bridge {
+    string id = 1;
+    string internalIPAddress = 2;
+}
+
+message BridgeState {
+    BridgeConfig config = 1;
+}
+
+message DeviceTypes {
+    bool bridge = 1;
+}
+
+message SoftwareUpdate {
+    double updateState = 1;
+    bool checkForUpdate = 2;
+    DeviceTypes deviceTypes = 3;
+    string url = 4;
+    string text = 5;
+    bool notify = 6;
+}
+
+message ConfigBridge {
+    string state = 1;
+    string lastinstall = 2;
+}
+
+message AutoInstall {
+    string updatetime = 1;
+    bool on = 2;
+}
+
+message SoftwareUpdate2 {
+    bool checkforupdate = 1;
+    string lastchange = 2;
+    ConfigBridge bridge = 3;
+    string state = 4;
+    AutoInstall autoinstall = 5;
+}
+
+message PortalState {
+    bool signedon = 1;
+    bool incoming = 2;
+    bool outgoing = 3;
+    string communication = 4;
+}
+
+message InternetServices {
+    string internet = 1;
+    string remoteaccess = 2;
+    string time = 3;
+    string swupdate = 4;
+}
+
+message ReplacesBridgeID {}
+
+message Backup {
+    string status = 1;
+    double errorcode = 2;
+}
+
+message WhitelistEntry {
+    string lastUseDate = 1;
+    string createDate = 2;
+    string name = 3;
+}
+
+message WhiteList {
+//     map<string, WhitelistEntry> whitelist = 28;
+}
+
+message BridgeConfig {
+    string name = 1;
+    double zigbeeChannel = 2;
+    string bridgeID = 3;
+    string mac = 4;
+    bool dhcp = 5;
+    string ipAddress = 6;
+    string netmask = 7;
+    string gateway = 8;
+    string proxyAddress = 9;
+    double proxyPort = 10;
+    string UTC = 11;
+    string localTime = 12;
+    string timezone = 13;
+    string modelID = 14;
+    string datastoreVersion = 15;
+    string swVersion = 16;
+    string apiVersion = 17;
+    SoftwareUpdate softwareUpdate = 18;
+    SoftwareUpdate2 softwareUpdate2 = 19;
+    bool linkButton = 20;
+    bool portalServices = 21;
+    string portalConnection = 22;
+    PortalState portalState = 23;
+    InternetServices internetServices = 24;
+    bool factorynew = 25;
+    ReplacesBridgeID replacesBridgeID = 26;
+    Backup backup = 27;
+    string starterKitID = 28;
+}

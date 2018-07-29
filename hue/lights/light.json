@@ -1,0 +1,27 @@
+{
+		"state": {
+			"on": true,
+			"bri": 254,
+			"alert": "none",
+			"mode": "homeautomation",
+			"reachable": true
+		},
+		"swupdate": {
+			"state": "noupdates",
+			"lastinstall": "2017-11-30T06:10:46"
+		},
+		"type": "Dimmable light",
+		"name": "Hue white lamp 1",
+		"modelid": "LWB014",
+		"manufacturername": "Philips",
+		"capabilities": {
+			"streaming": {
+				"renderer": false,
+				"proxy": false
+			}
+		},
+		"uniqueid": "00:17:88:01:02:6d:ac:36-0b",
+		"swversion": "1.29.0_r21169",
+		"swconfigid": "75D50777",
+		"productid": "Philips-LWB014-1-A19DLv3"
+	}
