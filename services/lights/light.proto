@@ -2,10 +2,12 @@ syntax = "proto3";
 
 package light;
 
+import "google/protobuf/empty.proto";
+
 service Service {
     rpc All(ListParams) returns (stream Light) {}
     rpc New(NewParams) returns (Scan) {}
-    rpc Search(SearchParams) returns (SearchResult) {}
+    rpc Search(SearchParams) returns (google.protobuf.Empty) {}
     rpc Get(GetParams) returns (Light) {}
     rpc SetState(SetStateParams) returns (Light) {}
     rpc Toggle(ToggleParams) returns (Light) {}
@@ -36,6 +38,7 @@ message NewParams {
 message SearchParams {
     string user = 1;
     string host = 2;
+    repeated string devices = 3;
 }
 
 message SetOperation {

@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/trace"
-	"github.com/ninnemana/gohbridge/hue/bridge"
-	"github.com/ninnemana/gohbridge/hue/lights"
+	"github.com/ninnemana/gohbridge/services/bridge"
+	"github.com/ninnemana/gohbridge/services/lights"
 	"google.golang.org/grpc"
 )
 

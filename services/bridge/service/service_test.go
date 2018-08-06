@@ -8,7 +8,8 @@ import (
 	"testing"
 
 	"cloud.google.com/go/trace"
-	"github.com/ninnemana/gohbridge/hue/bridge"
+	hueClient "github.com/ninnemana/gohbridge/hue/client"
+	"github.com/ninnemana/gohbridge/services/bridge"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -37,7 +38,14 @@ func TestMain(m *testing.M) {
 
 	s := grpc.NewServer(grpc.UnaryInterceptor(tc.GRPCServerInterceptor()))
 
-	bridge.RegisterServiceServer(s, &Service{})
+	cl, err := hueClient.New()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bridge.RegisterServiceServer(s, &Service{
+		hue: cl,
+	})
 	reflection.Register(s)
 
 	go func() {

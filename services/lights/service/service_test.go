@@ -9,10 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"cloud.google.com/go/trace"
-	"github.com/ninnemana/gohbridge/hue/bridge"
-	bridgeService "github.com/ninnemana/gohbridge/hue/bridge/service"
-	light "github.com/ninnemana/gohbridge/hue/lights"
+	"github.com/ninnemana/gohbridge/services/bridge"
+	bridgeService "github.com/ninnemana/gohbridge/services/bridge/service"
+	light "github.com/ninnemana/gohbridge/services/lights"
+	"go.opencensus.io/plugin/ocgrpc"
+	"go.opencensus.io/trace"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -34,16 +35,22 @@ func TestMain(m *testing.M) {
 		log.Fatalf("failed to listen on: %s", address)
 	}
 
-	ctx := context.Background()
-	tc, err := trace.NewClient(ctx, "ninneman-org")
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+
+	s := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
+
+	lightSvc, err := New()
+	if err != nil {
+		log.Fatal(err)
+	}
+	light.RegisterServiceServer(s, lightSvc)
+
+	bridgeSvc, err := bridgeService.New()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	s := grpc.NewServer(grpc.UnaryInterceptor(tc.GRPCServerInterceptor()))
-
-	light.RegisterServiceServer(s, &Service{})
-	bridge.RegisterServiceServer(s, &bridgeService.Service{})
+	bridge.RegisterServiceServer(s, bridgeSvc)
 	reflection.Register(s)
 
 	go func() {
@@ -52,7 +59,7 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
-	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithUnaryInterceptor(tc.GRPCClientInterceptor()))
+	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithStatsHandler(&ocgrpc.ClientHandler{}))
 	if err != nil {
 		log.Fatalf("did not connect RPC client: %v", err)
 		return
@@ -84,25 +91,33 @@ func TestMain(m *testing.M) {
 }
 
 func TestAll(t *testing.T) {
+	ctx := trace.NewContext(context.Background(), trace.NewSpan("test.lights.all", nil, trace.StartOptions{
+		Sampler: trace.AlwaysSample(),
+	}))
+	for i := 0; i < 25; i++ {
 
-	client, err := c.All(context.Background(), &light.ListParams{
-		User: os.Getenv("HUE_USER"),
-		Host: host,
-	})
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	for {
-		_, err = client.Recv()
-		switch {
-		case err == nil:
-		case err == io.EOF:
-			return
-		default:
+		client, err := c.All(ctx, &light.ListParams{
+			User: os.Getenv("HUE_USER"),
+			Host: host,
+		})
+		if err != nil {
 			t.Error(err)
 			return
+		}
+
+		count := 0
+		for {
+			_, err = client.Recv()
+			switch {
+			case err == nil:
+				count++
+			case err == io.EOF:
+				t.Logf("Light count '%d'\n", count)
+				return
+			default:
+				t.Error(err)
+				return
+			}
 		}
 	}
 }

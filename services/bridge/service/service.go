@@ -2,18 +2,21 @@ package service
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net/http"
-	"strings"
-	"time"
 
 	"cloud.google.com/go/trace"
-	upnp "github.com/micmonay/UPnP"
-	"github.com/ninnemana/gohbridge/hue/bridge"
+	"github.com/ninnemana/gohbridge/hue"
+	"github.com/ninnemana/gohbridge/services/bridge"
+	jsoniter "github.com/ninnemana/json-iterator"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/grpclog"
+)
+
+var (
+	json = jsoniter.ConfigCompatibleWithStandardLibrary
+
+	noHueClient = errors.New("required Philips Hue client was no supplied")
+	noLogger    = errors.New("required logger was not provided")
+	noTrace     = errors.New("required trace client was not provided")
 )
 
 // Service implements bridge.Interactor around the Hue
@@ -22,6 +25,28 @@ type Service struct {
 	clients map[string]string
 	Log     grpclog.LoggerV2
 	Trace   *trace.Client
+	hue     hue.Client
+}
+
+// New instantiates a new implementation of the bridge gRPC interface.New
+func New(cl hue.Client, l grpclog.LoggerV2, tr *trace.Client) (*Service, error) {
+	if cl == nil {
+		return nil, noHueClient
+	}
+
+	if l == nil {
+		return nil, noLogger
+	}
+
+	if tr == nil {
+		return nil, noTrace
+	}
+
+	return &Service{
+		hue:   cl,
+		Log:   l,
+		Trace: tr,
+	}, nil
 }
 
 // Discover retrieves any available Hue Bridge(s) available to the server.
@@ -29,63 +54,42 @@ func (s Service) Discover(params *bridge.DiscoverParams, serv bridge.Service_Dis
 	child := s.Trace.NewSpan("hue.discover")
 	defer child.Finish()
 
-	client := http.Client{
-		Timeout: time.Second * 5,
+	res, err := s.hue.AllBridges(serv.Context(), &hue.AllBridgeParams{
+		Method: "remote",
+	})
+	if err != nil {
+		return err
 	}
 
-	var discoverEndpoint string
-	switch strings.ToLower(params.GetMethod()) {
-	case "upnp":
-		up := upnp.NewUPNP(upnp.SERVICE_GATEWAY_IPV4_V2)
-		Interface, err := upnp.GetInterfaceByName("en0")
-		if err != nil {
-			return err
-		}
+	s.Log.Info("remote", res)
 
-		// get all devices compatible for the service name (timeout 1 second)
-		devices := up.GetAllCompatibleDevice(Interface, 1)
-		if len(devices) == 0 {
-			return errors.Errorf("no devices found on network")
-		}
-
-		for _, d := range devices {
-			for _, serv := range d.GetAllService() {
-				fmt.Println(serv.ControlURL, serv.EventSubURL, serv.SCPDURL)
+	var bridges []*bridge.Bridge
+	for _, r := range res {
+		switch r.(type) {
+		case bridge.Bridge:
+			br := r.(bridge.Bridge)
+			bridges = append(bridges, &br)
+		case *bridge.Bridge:
+			bridges = append(bridges, r.(*bridge.Bridge))
+		case map[string]interface{}:
+			data, err := json.Marshal(r)
+			if err != nil {
+				return err
 			}
+
+			var br bridge.Bridge
+			if err := json.Unmarshal(data, &br); err != nil {
+				return err
+			}
+
+			bridges = append(bridges, &br)
+		default:
+			return errors.Errorf("failed to parse '%T'", r)
 		}
-
-	case "remote":
-		discoverEndpoint = "https://www.meethue.com/api/nupnp"
-	default:
-		return errors.Errorf("connection method '%s' was not valid", params.GetMethod())
-	}
-
-	req, err := http.NewRequest(http.MethodGet, discoverEndpoint, nil)
-	if err != nil {
-		return err
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode != 200 {
-		data, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		return errors.New(string(data))
-	}
-
-	bridges := []bridge.Bridge{}
-	err = json.NewDecoder(resp.Body).Decode(&bridges)
-	if err != nil {
-		return err
 	}
 
 	for _, br := range bridges {
-		err = serv.Send(&br)
+		err = serv.Send(br)
 		if err != nil {
 			return err
 		}
@@ -100,37 +104,35 @@ func (s Service) GetBridgeState(ctx context.Context, params *bridge.ConfigParams
 	child := span.NewChild("hue.bridge_state")
 	defer child.Finish()
 
-	client := http.Client{
-		Timeout: time.Second * 5,
-	}
+	ctx = context.WithValue(ctx, hue.HostKey{}, params.GetHost())
+	ctx = context.WithValue(ctx, hue.UserKey{}, params.GetUser())
 
-	path := fmt.Sprintf("%s/api/%s", params.GetHost(), params.GetUser())
-	req, err := http.NewRequest(http.MethodGet, path, nil)
+	state, err := s.hue.GetFullState(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != 200 {
-		data, err := ioutil.ReadAll(resp.Body)
+	switch state.(type) {
+	case bridge.BridgeState:
+		bs := state.(bridge.BridgeState)
+		return &bs, nil
+	case *bridge.BridgeState:
+		return state.(*bridge.BridgeState), nil
+	case map[string]interface{}:
+		data, err := json.Marshal(state)
 		if err != nil {
 			return nil, err
 		}
-		return nil, errors.New(string(data))
+
+		var bs bridge.BridgeState
+		if err := json.Unmarshal(data, &bs); err != nil {
+			return nil, err
+		}
+
+		return &bs, nil
+	default:
+		return nil, errors.Errorf("failed to to parse '%T'", state)
 	}
-
-	bs := bridge.BridgeState{}
-	err = json.NewDecoder(resp.Body).Decode(&bs)
-	if err != nil {
-
-		return nil, err
-	}
-
-	return &bs, nil
 }
 
 // GetConfig retrieves the full configuration of the requested Hue Bridge.
@@ -139,34 +141,33 @@ func (s Service) GetConfig(ctx context.Context, params *bridge.ConfigParams) (*b
 	child := span.NewChild("hue.full_config")
 	defer child.Finish()
 
-	client := http.Client{
-		Timeout: time.Second * 5,
-	}
+	ctx = context.WithValue(ctx, hue.HostKey{}, params.GetHost())
+	ctx = context.WithValue(ctx, hue.UserKey{}, params.GetUser())
 
-	path := fmt.Sprintf("%s/api/%s/config", params.GetHost(), params.GetUser())
-	req, err := http.NewRequest(http.MethodGet, path, nil)
+	cfg, err := s.hue.GetFullState(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != 200 {
-		data, err := ioutil.ReadAll(resp.Body)
+	switch cfg.(type) {
+	case bridge.BridgeConfig:
+		bc := cfg.(bridge.BridgeConfig)
+		return &bc, nil
+	case *bridge.BridgeConfig:
+		return cfg.(*bridge.BridgeConfig), nil
+	case map[string]interface{}:
+		data, err := json.Marshal(cfg)
 		if err != nil {
 			return nil, err
 		}
-		return nil, errors.New(string(data))
-	}
 
-	conf := bridge.BridgeConfig{}
-	err = json.NewDecoder(resp.Body).Decode(&conf)
-	if err != nil {
-		return nil, err
-	}
+		var bc bridge.BridgeConfig
+		if err := json.Unmarshal(data, &bc); err != nil {
+			return nil, err
+		}
 
-	return &conf, nil
+		return &bc, nil
+	default:
+		return nil, errors.Errorf("failed to to parse '%T'", cfg)
+	}
 }
