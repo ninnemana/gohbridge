@@ -3,20 +3,20 @@ package service
 import (
 	"context"
 
-	"cloud.google.com/go/trace"
-	"github.com/ninnemana/gohbridge/hue"
 	"github.com/ninnemana/gohbridge/services/bridge"
+	huego "github.com/ninnemana/huego"
 	jsoniter "github.com/ninnemana/json-iterator"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"google.golang.org/grpc/grpclog"
 )
 
 var (
 	json = jsoniter.ConfigCompatibleWithStandardLibrary
 
-	noHueClient = errors.New("required Philips Hue client was no supplied")
-	noLogger    = errors.New("required logger was not provided")
-	noTrace     = errors.New("required trace client was not provided")
+	errNoHueClient = errors.New("required Philips Hue client was no supplied")
+	errNoLogger    = errors.New("required logger was not provided")
+	errNoTrace     = errors.New("required trace client was not provided")
 )
 
 // Service implements bridge.Interactor around the Hue
@@ -24,37 +24,31 @@ var (
 type Service struct {
 	clients map[string]string
 	Log     grpclog.LoggerV2
-	Trace   *trace.Client
-	hue     hue.Client
+	hue     huego.Client
 }
 
 // New instantiates a new implementation of the bridge gRPC interface.New
-func New(cl hue.Client, l grpclog.LoggerV2, tr *trace.Client) (*Service, error) {
+func New(cl huego.Client, l grpclog.LoggerV2) (*Service, error) {
 	if cl == nil {
-		return nil, noHueClient
+		return nil, errNoHueClient
 	}
 
 	if l == nil {
-		return nil, noLogger
-	}
-
-	if tr == nil {
-		return nil, noTrace
+		return nil, errNoLogger
 	}
 
 	return &Service{
-		hue:   cl,
-		Log:   l,
-		Trace: tr,
+		hue: cl,
+		Log: l,
 	}, nil
 }
 
 // Discover retrieves any available Hue Bridge(s) available to the server.
 func (s Service) Discover(params *bridge.DiscoverParams, serv bridge.Service_DiscoverServer) error {
-	child := s.Trace.NewSpan("hue.discover")
-	defer child.Finish()
+	// child := s.Trace.NewSpan("hue.discover")
+	// defer child.Finish()
 
-	res, err := s.hue.AllBridges(serv.Context(), &hue.AllBridgeParams{
+	res, err := s.hue.AllBridges(serv.Context(), &huego.AllBridgeParams{
 		Method: "remote",
 	})
 	if err != nil {
@@ -100,12 +94,16 @@ func (s Service) Discover(params *bridge.DiscoverParams, serv bridge.Service_Dis
 
 // GetBridgeState retrieves the current state of the configured Hue Bridge.
 func (s Service) GetBridgeState(ctx context.Context, params *bridge.ConfigParams) (*bridge.BridgeState, error) {
-	span := trace.FromContext(ctx)
-	child := span.NewChild("hue.bridge_state")
-	defer child.Finish()
+	span := trace.NewSpan(
+		"hue.bridge_state",
+		trace.FromContext(ctx),
+		trace.StartOptions{},
+	)
+	defer span.End()
 
-	ctx = context.WithValue(ctx, hue.HostKey{}, params.GetHost())
-	ctx = context.WithValue(ctx, hue.UserKey{}, params.GetUser())
+	ctx = trace.NewContext(ctx, span)
+	ctx = context.WithValue(ctx, huego.HostKey{}, params.GetHost())
+	ctx = context.WithValue(ctx, huego.UserKey{}, params.GetUser())
 
 	state, err := s.hue.GetFullState(ctx)
 	if err != nil {
@@ -137,12 +135,16 @@ func (s Service) GetBridgeState(ctx context.Context, params *bridge.ConfigParams
 
 // GetConfig retrieves the full configuration of the requested Hue Bridge.
 func (s Service) GetConfig(ctx context.Context, params *bridge.ConfigParams) (*bridge.BridgeConfig, error) {
-	span := trace.FromContext(ctx)
-	child := span.NewChild("hue.full_config")
-	defer child.Finish()
+	span := trace.NewSpan(
+		"hue.full_config",
+		trace.FromContext(ctx),
+		trace.StartOptions{},
+	)
+	defer span.End()
 
-	ctx = context.WithValue(ctx, hue.HostKey{}, params.GetHost())
-	ctx = context.WithValue(ctx, hue.UserKey{}, params.GetUser())
+	ctx = trace.NewContext(ctx, span)
+	ctx = context.WithValue(ctx, huego.HostKey{}, params.GetHost())
+	ctx = context.WithValue(ctx, huego.UserKey{}, params.GetUser())
 
 	cfg, err := s.hue.GetFullState(ctx)
 	if err != nil {

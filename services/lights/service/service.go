@@ -2,16 +2,14 @@ package service
 
 import (
 	"context"
-	"log"
+	"fmt"
 
-	"github.com/ninnemana/gohbridge/hue"
 	light "github.com/ninnemana/gohbridge/services/lights"
+	"github.com/ninnemana/huego"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	jsoniter "github.com/ninnemana/json-iterator"
 	"github.com/pkg/errors"
-	"go.opencensus.io/exporter/stackdriver"
-	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 )
 
@@ -29,19 +27,6 @@ func New(cl hue.Client) (*Service, error) {
 	if cl == nil {
 		return nil, errors.New("required Philips Hue client was no supplied")
 	}
-
-	se, err := stackdriver.NewExporter(stackdriver.Options{
-		MetricPrefix: "hue",
-		ProjectID:    "ninneman-org",
-		OnError: func(err error) {
-			log.Fatalf("failed to export %v ", err)
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	view.RegisterExporter(se)
-	trace.RegisterExporter(se)
 
 	return &Service{
 		hue: cl,
@@ -62,7 +47,7 @@ func (s *Service) All(params *light.ListParams, server light.Service_AllServer) 
 	}
 
 	for _, r := range results {
-		var l *light.Light
+		l := &light.Light{}
 		switch r.(type) {
 		case *light.Light:
 			l = r.(*light.Light)
@@ -79,6 +64,7 @@ func (s *Service) All(params *light.ListParams, server light.Service_AllServer) 
 				return err
 			}
 		default:
+			return errors.Errorf("failed to convert '%T' into *light.Light", r)
 		}
 
 		if err = server.Send(l); err != nil {
@@ -134,8 +120,35 @@ func (s *Service) Get(ctx context.Context, params *light.GetParams) (*light.Ligh
 		return nil, err
 	}
 
-	l, ok := res.(*light.Light)
-	if !ok {
+	var l *light.Light
+	switch res.(type) {
+	case *light.Light:
+		var ok bool
+		l, ok = res.(*light.Light)
+		if !ok {
+			return nil, errors.Errorf("failed to convert '%T' to *light.Light", res)
+		}
+	case map[string]interface{}:
+		mp, ok := res.(map[string]interface{})
+		if !ok {
+			return nil, errors.Errorf("failed to convert '%T' to map[string]interface{}", res)
+		}
+
+		data, err := json.Marshal(mp)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to marshal into JSON data")
+		}
+
+		if err := json.Unmarshal(data, &l); err != nil {
+			return nil, errors.Wrap(err, "failed to unmarshal JSON data into *light.Light")
+		}
+
+		span.SetStatus(trace.Status{
+			Code:    trace.StatusCodeFailedPrecondition,
+			Message: "sample error",
+		})
+		fmt.Println("set status")
+	default:
 		return nil, errors.Errorf("failed to convert '%T' to *light.Light", res)
 	}
 

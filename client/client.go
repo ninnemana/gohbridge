@@ -62,7 +62,7 @@ func main() {
 	case result := <-ipChan:
 		switch result.(type) {
 		case error:
-			log.Fatalf("failed to make discovery call to RPC service: %v", err)
+			log.Fatalf("failed to make discovery call to RPC service: %v", result)
 		case string:
 			ip = result.(string)
 		}
@@ -99,6 +99,7 @@ func main() {
 				Host: host,
 			})
 			if err != nil {
+				fmt.Println("get: ", err)
 				log.Fatal(err)
 				return
 			}
@@ -110,7 +111,7 @@ func main() {
 			fmt.Println(bedroom.GetModelid())
 			return
 		default:
-			fmt.Println(err.Error())
+			fmt.Println("default: ", err.Error())
 			return
 		}
 	}
