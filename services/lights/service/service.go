@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	light "github.com/ninnemana/gohbridge/services/lights"
 	"github.com/ninnemana/huego"
@@ -10,8 +11,27 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	jsoniter "github.com/ninnemana/json-iterator"
 	"github.com/pkg/errors"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 )
+
+func init() {
+	view.Register(
+		&view.View{
+			Name:        "light_count",
+			Description: "number of lights",
+			Measure:     lightCount,
+			Aggregation: view.LastValue(),
+		},
+		&view.View{
+			Name:        "all_lights_timer",
+			Description: "duration of all lights call",
+			Measure:     allLightTimer,
+			Aggregation: view.Count(),
+		},
+	)
+}
 
 var (
 	json = jsoniter.ConfigCompatibleWithStandardLibrary
@@ -33,18 +53,31 @@ func New(cl hue.Client) (*Service, error) {
 	}, nil
 }
 
+var (
+	lightCount    = stats.Int64("ninneman.org/hue/measures/light_count", "number of lights", stats.UnitDimensionless)
+	allLightTimer = stats.Float64("ninneman.org/hue/measures/light_timer", "duration of all lights all", stats.UnitDimensionless)
+)
+
 // All retrieves a streamed list of light records retrieved from the Hue REST API.
 func (s *Service) All(params *light.ListParams, server light.Service_AllServer) error {
 	_, span := trace.StartSpan(server.Context(), "hue.lights.all")
 	defer span.End()
+	start := time.Now()
 
 	ctx := context.WithValue(server.Context(), hue.UserKey{}, params.GetUser())
 	ctx = context.WithValue(ctx, hue.HostKey{}, params.GetHost())
+	stats.Record(ctx, allLightTimer.M(time.Since(start).Seconds()*1000))
 
 	results, err := s.hue.AllLights(ctx)
 	if err != nil {
+		span.SetStatus(trace.Status{
+			Code:    trace.StatusCodeNotFound,
+			Message: fmt.Sprintf("failed to to retrieve lights: %v", err),
+		})
 		return err
 	}
+
+	stats.Record(ctx, lightCount.M(int64(len(results))))
 
 	for _, r := range results {
 		l := &light.Light{}
@@ -57,17 +90,33 @@ func (s *Service) All(params *light.ListParams, server light.Service_AllServer) 
 		case map[string]interface{}:
 			data, err := json.Marshal(r)
 			if err != nil {
+				span.SetStatus(trace.Status{
+					Code:    trace.StatusCodeInternal,
+					Message: "failed to marshal",
+				})
 				return err
 			}
 
 			if err := json.Unmarshal(data, l); err != nil {
+				span.SetStatus(trace.Status{
+					Code:    trace.StatusCodeInternal,
+					Message: "failed to unmarshal",
+				})
 				return err
 			}
 		default:
+			span.SetStatus(trace.Status{
+				Code:    trace.StatusCodeInternal,
+				Message: fmt.Sprintf("failed to convert '%T' into *light.Light", r),
+			})
 			return errors.Errorf("failed to convert '%T' into *light.Light", r)
 		}
 
 		if err = server.Send(l); err != nil {
+			span.SetStatus(trace.Status{
+				Code:    trace.StatusCodeInternal,
+				Message: fmt.Sprintf("failed to send message: %v", err),
+			})
 			return err
 		}
 	}
@@ -142,12 +191,6 @@ func (s *Service) Get(ctx context.Context, params *light.GetParams) (*light.Ligh
 		if err := json.Unmarshal(data, &l); err != nil {
 			return nil, errors.Wrap(err, "failed to unmarshal JSON data into *light.Light")
 		}
-
-		span.SetStatus(trace.Status{
-			Code:    trace.StatusCodeFailedPrecondition,
-			Message: "sample error",
-		})
-		fmt.Println("set status")
 	default:
 		return nil, errors.Errorf("failed to convert '%T' to *light.Light", res)
 	}
