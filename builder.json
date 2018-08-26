@@ -3,7 +3,8 @@
         {
             "name": "gcr.io/cloud-builders/go",
             "args": [
-                "test"
+                "test",
+                "./services/..."
             ]
         }
     ]
