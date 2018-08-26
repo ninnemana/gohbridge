@@ -5,7 +5,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
+	datadog "github.com/DataDog/opencensus-go-exporter-datadog"
 	"github.com/ninnemana/gohbridge/services/bridge"
 	bridgeService "github.com/ninnemana/gohbridge/services/bridge/service"
 	"github.com/ninnemana/gohbridge/services/lights"
@@ -42,14 +44,20 @@ func main() {
 	}
 	defer exporter.Flush()
 
+	statsExporter := datadog.NewExporter(datadog.Options{
+		Namespace: "hue",
+	})
+	defer statsExporter.Stop()
+
 	trace.RegisterExporter(exporter)
 	defer trace.UnregisterExporter(exporter)
-	view.RegisterExporter(exporter)
-	defer view.UnregisterExporter(exporter)
+	view.RegisterExporter(statsExporter)
+	defer view.UnregisterExporter(statsExporter)
 
 	trace.ApplyConfig(trace.Config{
 		DefaultSampler: trace.AlwaysSample(),
 	})
+	view.SetReportingPeriod(time.Second * 1)
 
 	bq, err := bigquery.NewClient(ctx, "ninneman-org")
 	if err != nil {
