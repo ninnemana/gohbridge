@@ -24,6 +24,22 @@
   version = "v0.25.0"
 
 [[projects]]
+  digest = "1:e64fddc819e2abc68792a743dd857c379449a56f2b9eaf030c03fb0ec19de884"
+  name = "github.com/DataDog/datadog-go"
+  packages = ["statsd"]
+  pruneopts = ""
+  revision = "e67964b4021ad3a334e748e8811eb3cd6becbc6e"
+  version = "2.1.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:053f4efcc417dd49e7a27985c73998d67df3398891bc11d3166deeab35ca9a02"
+  name = "github.com/DataDog/opencensus-go-exporter-datadog"
+  packages = ["."]
+  pruneopts = ""
+  revision = "dbb3980bd763bbc52ff3cc211c6f8f7b354ad2d9"
+
+[[projects]]
   digest = "1:2f4d4ba08e54c0c63693d7dd21c30c8ff6800d047efcbbe8addd5620d2625871"
   name = "github.com/go-chi/chi"
   packages = ["."]
@@ -94,6 +110,14 @@
   version = "1.1.4"
 
 [[projects]]
+  digest = "1:210286d0cb60ffe28f1ca00b664029e8943009f95d06d8f8c336301b28e1aee5"
+  name = "github.com/philhofer/fwd"
+  packages = ["."]
+  pruneopts = ""
+  revision = "bb6d471dc95d4fe11e432687f8b70ff496cf3136"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:7365acd48986e205ccb8652cc746f09c8b7876030d53710ea6ef7d0bd0dcd7ca"
   name = "github.com/pkg/errors"
   packages = ["."]
@@ -112,6 +136,14 @@
   pruneopts = ""
   revision = "967844826e58cf31213a7dfb82455d242ad85101"
   version = "v3.0.0"
+
+[[projects]]
+  digest = "1:cae65c1f3471b1f456a9d8a160440f4824ad50c718a15da4144490fbc3b12e49"
+  name = "github.com/tinylib/msgp"
+  packages = ["msgp"]
+  pruneopts = ""
+  revision = "b2b6a672cf1e5b90748f79b8b81fc8c5cf0571a1"
+  version = "1.0.2"
 
 [[projects]]
   digest = "1:eb3da47361162f0ad991ddf391e6dc03e23889201d76046e2917687b84977aee"
@@ -306,12 +338,21 @@
   revision = "168a6198bcb0ef175f7dacec0b8691fc141dc9b8"
   version = "v1.13.0"
 
+[[projects]]
+  digest = "1:8c3fd5264d24088672b0ec1fb9893705e41835fded35ba36482cb2e18c6e65d0"
+  name = "gopkg.in/DataDog/dd-trace-go.v1"
+  packages = ["ddtrace/ext"]
+  pruneopts = ""
+  revision = "2ef32813748b754e58e3b9336fd257aec967515b"
+  version = "v1.1.1"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
     "cloud.google.com/go/bigquery",
     "cloud.google.com/go/trace",
+    "github.com/DataDog/opencensus-go-exporter-datadog",
     "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes/empty",
     "github.com/ninnemana/huego",
