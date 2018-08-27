@@ -1,0 +1,12 @@
+{
+    "steps": [
+        {
+            "name": "gcr.io/cloud-builders/go",
+            "args": [
+                "test",
+                "./services/..."
+            ],
+            "env": ["PROJECT_ROOT=github.com/ninnemana/gohbridge"]
+        }
+    ]
+}

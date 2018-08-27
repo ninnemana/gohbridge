@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package light;
+
+import "google/protobuf/empty.proto";
+
+service Service {
+    rpc All(ListParams) returns (stream Light) {}
+    rpc New(NewParams) returns (Scan) {}
+    rpc Search(SearchParams) returns (google.protobuf.Empty) {}
+    rpc Get(GetParams) returns (Light) {}
+    rpc SetState(SetStateParams) returns (Light) {}
+    rpc Toggle(ToggleParams) returns (Light) {}
+}
+
+message GetParams {
+    string user = 1;
+    string host = 2;
+    int32 ID = 3;
+}
+
+message ListParams {
+    string user = 1;
+    string host = 2;
+}
+
+message ToggleParams {
+    string user = 1;
+    string host = 2;
+    int32 ID = 3;
+}
+
+message NewParams {
+    string user = 1;
+    string host = 2;
+}
+
+message SearchParams {
+    string user = 1;
+    string host = 2;
+    repeated string devices = 3;
+}
+
+message SetOperation {
+    bool on = 1;
+    int32 bri = 2;
+    int32 hue = 3;
+    int32 sat = 4;
+    map<string, float> xy = 5;
+    int32 ct = 6;
+    string alert = 7;
+    string effect = 8;
+    string colormode = 9;
+    bool reachable = 10;
+}
+
+message Scan {
+    string lastscan = 1;
+}
+
+message SearchResult {
+    map<string, string> success = 1;
+}
+
+message State {
+    bool on = 1;
+    double bri = 2;
+    string alert = 3;
+    string mode = 4;
+    bool reachable = 5;
+    double hue = 6;
+    double sat = 7;
+    repeated double xy = 8;
+    double ct = 9;
+    string effect = 10;
+    double transitiontime = 11;
+    double bri_inc = 12;
+    double sat_inc = 13;
+    double hue_inc = 14;
+    double ct_inc = 15;
+    repeated double xy_inc = 16;
+}
+
+message SoftwareUpdate {
+    string state = 1;
+    string lastinstall = 2;
+}
+
+message Streaming {
+    bool renderer = 1;
+    bool proxy = 2;
+}
+
+message Capabilities {
+    Streaming streaming = 1;
+}
+
+message Light {
+    State state = 1;
+    SoftwareUpdate swupdate = 2;
+    string type = 3;
+    string name = 4;
+    string modelid = 5;
+    string manufacturername = 6;
+    Capabilities capabilities = 7;
+    string uniqueid = 8;
+    string swversion = 9;
+    string swconfigid = 10;
+    string productid = 11;
+    int32 ID = 12;
+}
+
+message LightState {
+    bool on = 1;
+    double bri = 2;
+    string alert = 3;
+    repeated double xy = 4;
+    string effect = 5;
+    double transitiontime = 6;
+    double bri_inc = 7;
+    repeated double xy_inc = 8;
+}
+
+message SetStateParams {
+    LightState update = 1;
+    string host = 2;
+    string user = 3;
+    int32 ID = 4;
+}
