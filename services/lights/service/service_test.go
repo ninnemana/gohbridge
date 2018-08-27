@@ -9,9 +9,13 @@ import (
 	"strings"
 	"testing"
 
+	"google.golang.org/grpc/grpclog"
+
 	"github.com/ninnemana/gohbridge/services/bridge"
 	bridgeService "github.com/ninnemana/gohbridge/services/bridge/service"
 	light "github.com/ninnemana/gohbridge/services/lights"
+
+	huegoClient "github.com/ninnemana/huego/client"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/trace"
 	context "golang.org/x/net/context"
@@ -39,13 +43,21 @@ func TestMain(m *testing.M) {
 
 	s := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
 
-	lightSvc, err := New()
+	hueClient, err := huegoClient.New()
+	if err != nil {
+		log.Fatalf("failed to create hue client: %v", err)
+	}
+
+	lightSvc, err := New(hueClient)
 	if err != nil {
 		log.Fatal(err)
 	}
 	light.RegisterServiceServer(s, lightSvc)
 
-	bridgeSvc, err := bridgeService.New()
+	bridgeSvc, err := bridgeService.New(
+		hueClient,
+		grpclog.NewLoggerV2(os.Stdout, os.Stdout, os.Stderr),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}

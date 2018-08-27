@@ -7,9 +7,12 @@ import (
 	"os"
 	"testing"
 
-	"cloud.google.com/go/trace"
-	hueClient "github.com/ninnemana/gohbridge/hue/client"
+	"google.golang.org/grpc/grpclog"
+
 	"github.com/ninnemana/gohbridge/services/bridge"
+
+	"cloud.google.com/go/trace"
+	hueClient "github.com/ninnemana/huego/client"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -43,9 +46,12 @@ func TestMain(m *testing.M) {
 		log.Fatal(err)
 	}
 
-	bridge.RegisterServiceServer(s, &Service{
-		hue: cl,
-	})
+	bridgeSvc, err := New(cl, grpclog.NewLoggerV2(os.Stdout, os.Stdout, os.Stderr))
+	if err != nil {
+		log.Fatalf("failed to create bridge service: %v", err)
+	}
+
+	bridge.RegisterServiceServer(s, bridgeSvc)
 	reflection.Register(s)
 
 	go func() {
